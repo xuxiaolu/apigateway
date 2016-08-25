@@ -1,0 +1,6 @@
+dubbo:
+  name: apiw
+  address: zookeeper://127.0.0.1:2181
+  version: latest
+  check: false
+  class: 
