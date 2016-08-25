@@ -3,4 +3,4 @@ dubbo:
   address: zookeeper://127.0.0.1:2181
   version: latest
   check: false
-  class: 
+  class: com.xuxl.user.service.api.UserService

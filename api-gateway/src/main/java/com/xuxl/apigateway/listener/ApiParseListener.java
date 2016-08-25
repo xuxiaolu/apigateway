@@ -4,6 +4,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.sql.Date;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,29 +15,33 @@ import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationListener;
-import org.springframework.context.annotation.Description;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 
+import com.alibaba.dubbo.common.logger.Logger;
+import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.xuxl.apigateway.common.ApiDefine;
 import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiMethodDefine;
 import com.xuxl.apigateway.common.ApiParameterDefine;
-import com.xuxl.apigateway.common.SpringBean;
+import com.xuxl.apigateway.common.ServiceBean;
 import com.xuxl.common.annotation.ApiGroup;
 import com.xuxl.common.annotation.ApiParameter;
+import com.xuxl.common.annotation.Description;
 import com.xuxl.common.annotation.HttpApi;
+import com.xuxl.common.exception.ServiceException;
 
 @Component
 public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
+	
+	private static final Logger logger = LoggerFactory.getLogger(ApiParseListener.class);
 
 	@Value("${dubbo.class}")
 	private String classNames;
 	
 	@Autowired
-	private SpringBean bean;
-	
+	private ServiceBean serviceBean;
 	
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
@@ -46,8 +51,8 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 			try {
 				Class<?> clazz = Class.forName(className);
 				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
-				Object object = bean.getBean(clazz.getName(), clazz);
 				if(Objects.nonNull(group)) {
+					Object object = serviceBean.getService(className, clazz);
 					Method[] methodArray = clazz.getMethods();
 					Stream.of(methodArray).forEach(method -> {
 						HttpApi httpApi = method.getAnnotation(HttpApi.class);
@@ -58,40 +63,26 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 							methodDefine.setOwner(httpApi.owner());
 							Class<?> returnType = method.getReturnType();
 							if(Collection.class.isAssignableFrom(returnType)) {
+								methodDefine.setReturnType(returnType);
 								Type genericType = ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[0];
-								try {
-									Class<?> genericClazz = Class.forName(((Class<?>)genericType).getName());
-									if(String.class.isAssignableFrom(genericClazz)) {
-										methodDefine.setReturnType(genericClazz);
-									} else if(Objects.nonNull(genericClazz.getAnnotation(Description.class))) {
-										methodDefine.setReturnType(genericClazz);
-									} else if(ClassUtils.isPrimitiveOrWrapper(genericClazz)) {
-										methodDefine.setReturnType(genericClazz);
-									} else {
-										
-									}
-								} catch (ClassNotFoundException e) {
-									e.printStackTrace();
-								}
-							} else if(returnType.isArray()) {
-								Class<?> genericClazz = returnType.getComponentType();
-								if(String.class.isAssignableFrom(genericClazz)) {
-									methodDefine.setReturnType(genericClazz);
-								} else if(Objects.nonNull(genericClazz.getAnnotation(Description.class))) {
-									methodDefine.setReturnType(genericClazz);
-								} else if(ClassUtils.isPrimitiveOrWrapper(genericClazz)) {
-									methodDefine.setReturnType(genericClazz);
+								Class<?> genericClazz = (Class<?>) genericType;
+								if(isAcceptReturnType(genericClazz)) {
+									methodDefine.setGenericType(genericClazz);
 								} else {
 									
 								}
-							} else if (String.class.isAssignableFrom(returnType)) {
+							} else if(returnType.isArray()) {
 								methodDefine.setReturnType(returnType);
-							} else if (ClassUtils.isPrimitiveOrWrapper(returnType)) {
+								Class<?> genericClazz = returnType.getComponentType();
+								if(isAcceptReturnType(genericClazz)) {
+									methodDefine.setGenericType(genericClazz);
+								}  else {
+									
+								}
+							} else if (isAcceptReturnType(returnType)) {
 								methodDefine.setReturnType(returnType);
 							} else {
-								if(Objects.nonNull(returnType.getAnnotation(Description.class))) {
-									methodDefine.setReturnType(returnType);
-								}
+								
 							}
 							
 							ApiDefine api = new ApiDefine();
@@ -158,10 +149,16 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 					});
 				}
 			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
+				logger.error(String.format("%s is not found", className),e);
+			} catch (ServiceException e) {
+				logger.error(String.format("%s is not found", className),e);
 			}
 		});
 		ApiHolder.setRegisterMap(Collections.unmodifiableMap(registerMap));
 	}
 
+	private boolean isAcceptReturnType(Class<?> clazz) {
+		return Date.class.isAssignableFrom(clazz) || String.class.isAssignableFrom(clazz) || Objects.nonNull(clazz.getAnnotation(Description.class)) || ClassUtils.isPrimitiveOrWrapper(clazz);
+	}
+	
 }
