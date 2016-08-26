@@ -12,8 +12,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
@@ -25,12 +25,10 @@ import com.xuxl.apigateway.common.ApiDefine;
 import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiMethodDefine;
 import com.xuxl.apigateway.common.ApiParameterDefine;
-import com.xuxl.apigateway.common.ServiceBean;
 import com.xuxl.common.annotation.ApiGroup;
 import com.xuxl.common.annotation.ApiParameter;
 import com.xuxl.common.annotation.Description;
 import com.xuxl.common.annotation.HttpApi;
-import com.xuxl.common.exception.ServiceException;
 
 @Component
 public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
@@ -40,19 +38,17 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 	@Value("${dubbo.class}")
 	private String classNames;
 	
-	@Autowired
-	private ServiceBean serviceBean;
-	
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
 		Map<String,ApiDefine> registerMap = new HashMap<>();
+		ApplicationContext context = event.getApplicationContext();
 		String[] classNameArray = classNames.split(";");
 		Stream.of(classNameArray).forEach(className -> {
 			try {
 				Class<?> clazz = Class.forName(className);
 				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
 				if(Objects.nonNull(group)) {
-					Object object = serviceBean.getService(className, clazz);
+					Object object = context.getBean(className);
 					Method[] methodArray = clazz.getMethods();
 					Stream.of(methodArray).forEach(method -> {
 						HttpApi httpApi = method.getAnnotation(HttpApi.class);
@@ -84,7 +80,6 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 							} else {
 								
 							}
-							
 							ApiDefine api = new ApiDefine();
 							api.setApiMethodDefine(methodDefine);
 							api.setClassName(clazz.getName());
@@ -149,8 +144,6 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 					});
 				}
 			} catch (ClassNotFoundException e) {
-				logger.error(String.format("%s is not found", className),e);
-			} catch (ServiceException e) {
 				logger.error(String.format("%s is not found", className),e);
 			}
 		});

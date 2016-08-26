@@ -10,7 +10,6 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeanWrapper;
@@ -40,14 +39,13 @@ import com.xuxl.common.exception.ServiceException;
 import com.xuxl.common.utils.JsonUtil;
 
 @RestController
-@RequestMapping(value = "/m.api",method = {RequestMethod.GET,RequestMethod.POST})
+@RequestMapping(value = "/api",method = {RequestMethod.GET,RequestMethod.POST})
 public class MultiController {
 
-	private final static Logger log = LoggerFactory.getLogger(MultiController.class);
+	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
 	@RequestMapping
-	public WebAsyncTask<Response> mult(HttpServletRequest request,HttpServletResponse response) throws ServiceException {
-		response.addHeader("Access-Control-Allow-Origin", "*");
+	public WebAsyncTask<Response> mult(HttpServletRequest request) throws ServiceException {
 		String methodName = request.getParameter("_mt");
 		if(StringUtils.hasText(methodName)) {
 			Callable<Response> callResponse = new Callable<Response>() {
@@ -62,7 +60,7 @@ public class MultiController {
 					try {
 						objectArray = parseParamater(apiParameterDefines, request);
 					} catch (Exception e) {
-						log.error("解析参数错误",e);
+						logger.error("解析参数错误",e);
 						throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 					}
 					try {
@@ -71,33 +69,33 @@ public class MultiController {
 						response.setResult(result);
 						return response;
 					} catch (IllegalAccessException e) {
-						log.error("安全异常",e);
+						logger.error("安全异常",e);
 						throw new ServiceException(SystemReturnCode.SECURITY_ERROR);
 					} catch (IllegalArgumentException e) {
-						log.error("参数错误",e);
+						logger.error("参数错误",e);
 						throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 					} catch (InvocationTargetException e) {
 						Throwable exception = e.getTargetException();
 						if (ServiceException.class.isAssignableFrom(exception.getClass())) {
-							log.error(e.getTargetException());
+							logger.error(e.getTargetException());
 							throw (ServiceException) e.getTargetException();
 						} else if (RpcException.class.isAssignableFrom(exception.getClass())) {
 							RpcException rpcException = (RpcException) e.getTargetException();
 							int code = rpcException.getCode();
 							if (code == RpcException.UNKNOWN_EXCEPTION) {
-								log.error("dubbo服务找不到", rpcException);
+								logger.error("dubbo服务找不到", rpcException);
 								throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
 							} else if (code == RpcException.FORBIDDEN_EXCEPTION) {
-								log.error("禁止访问目标接口", rpcException);
+								logger.error("禁止访问目标接口", rpcException);
 								throw new ServiceException(SystemReturnCode.FORBIDDED_ERROR);
 							} else if (code == RpcException.NETWORK_EXCEPTION) {
-								log.error("禁止访问目标接口", rpcException);
+								logger.error("禁止访问目标接口", rpcException);
 								throw new ServiceException(SystemReturnCode.NETWORK_ERROR);
 							} else if (code == RpcException.SERIALIZATION_EXCEPTION) {
-								log.error("序列化错误", rpcException);
+								logger.error("序列化错误", rpcException);
 								throw new ServiceException(SystemReturnCode.SERIALIZATION_ERROR);
 							} else if (code == RpcException.TIMEOUT_EXCEPTION) {
-								log.error("访问目标接口超时", rpcException);
+								logger.error("访问目标接口超时", rpcException);
 								throw new ServiceException(SystemReturnCode.TIMEOUT_ERROR);
 							}
 						} else {
@@ -105,7 +103,7 @@ public class MultiController {
 						}
 					} finally {
 						long end = System.currentTimeMillis() - start;
-						log.info(String.format("invoke %s.%s method,arguments:%s, take %s ms", apiDefine.getClassName(),
+						logger.info(String.format("invoke %s.%s method,arguments:%s, take %s ms", apiDefine.getClassName(),
 								method.getName(),new ObjectMapper().writeValueAsString(objectArray), end));
 					}
 					return null;
@@ -132,17 +130,17 @@ public class MultiController {
 					if(!isSimpleType(clazz)) {
 						//不支持map
 						if(Map.class.isAssignableFrom(clazz)) {
-							log.error("unsupport map type");
+							logger.error("unsupport map type");
 							throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 						}
 						//不支持接口
 						if(clazz.isInterface()) {
-							log.error(String.format("%s type is interface : %s",name, clazz.getTypeName()));
+							logger.error(String.format("%s type is interface : %s",name, clazz.getTypeName()));
 							throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 						} 
 						//不支持抽象类
 						if(Modifier.isAbstract(clazz.getModifiers())) {
-							log.error(String.format("%s type is abstract : %s",name, clazz.getTypeName()));
+							logger.error(String.format("%s type is abstract : %s",name, clazz.getTypeName()));
 							throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 						}
 						if(StringUtils.isEmpty(value)) {
@@ -157,7 +155,7 @@ public class MultiController {
 					} else {
 						if (StringUtils.isEmpty(value)) {
 							if(define.isRequired()) {
-								log.error(String.format("%s field is required, so this can not be null", name));
+								logger.error(String.format("%s field is required, so this can not be null", name));
 								throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 							} else {
 								String defaultValue = define.getDefaultValue();

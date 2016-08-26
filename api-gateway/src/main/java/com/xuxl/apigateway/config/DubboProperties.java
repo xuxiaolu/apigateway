@@ -30,7 +30,6 @@ public class DubboProperties {
 	
 	private int timeOut;
 	
-	
 	public static DubboProperties load(Environment environment) {
 		DubboProperties properties = new DubboProperties();
 		properties.setName(environment.getProperty(DUBBO_APPLICATION_NAME,"apiw"));
