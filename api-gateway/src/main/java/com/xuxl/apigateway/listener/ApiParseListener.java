@@ -8,47 +8,61 @@ import java.sql.Date;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
+import com.alibaba.dubbo.config.ApplicationConfig;
+import com.alibaba.dubbo.config.ReferenceConfig;
+import com.alibaba.dubbo.config.RegistryConfig;
 import com.xuxl.apigateway.common.ApiDefine;
 import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiMethodDefine;
 import com.xuxl.apigateway.common.ApiParameterDefine;
+import com.xuxl.apigateway.config.DubboProperties;
 import com.xuxl.common.annotation.ApiGroup;
 import com.xuxl.common.annotation.ApiParameter;
 import com.xuxl.common.annotation.Description;
 import com.xuxl.common.annotation.HttpApi;
 
 @Component
+@EnableConfigurationProperties(DubboProperties.class)
 public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ApiParseListener.class);
 
-	@Value("${dubbo.class}")
-	private String classNames;
+	@Autowired
+	private DubboProperties properties;
+	
+	private Object getRefer(ApplicationContext context,String className) {
+		ReferenceConfig<?> referenceConfig = context.getBean(className, ReferenceConfig.class);
+		return referenceConfig.get();
+	}
 	
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
-		Map<String,ApiDefine> registerMap = new HashMap<>();
 		ApplicationContext context = event.getApplicationContext();
-		String[] classNameArray = classNames.split(";");
-		Stream.of(classNameArray).forEach(className -> {
+		registerDubboBean(context);
+		Map<String,ApiDefine> registerMap = new HashMap<>();
+		List<String> registryList = properties.getRegistryList();
+		registryList.stream().forEach(className -> {
 			try {
 				Class<?> clazz = Class.forName(className);
 				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
 				if(Objects.nonNull(group)) {
-					Object object = context.getBean(className);
+					Object object = getRefer(context, className);
 					Method[] methodArray = clazz.getMethods();
 					Stream.of(methodArray).forEach(method -> {
 						HttpApi httpApi = method.getAnnotation(HttpApi.class);
@@ -148,6 +162,41 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 			}
 		});
 		ApiHolder.setRegisterMap(Collections.unmodifiableMap(registerMap));
+	}
+
+	private void registerDubboBean(ApplicationContext applicationContext) {
+		ConfigurableApplicationContext context = (ConfigurableApplicationContext) applicationContext;
+		
+		String applicationConfigBeanName = "applicationConfig";
+		ApplicationConfig applicationConfig = new ApplicationConfig(properties.getName());
+		context.getBeanFactory().registerSingleton(applicationConfigBeanName, applicationConfig);
+		logger.info("register applicationConfig success");
+		
+		String registryConfigBeanName = "registryConfig";
+		RegistryConfig registryConfig = new RegistryConfig(properties.getAddress());
+		registryConfig.setProtocol("dubbo");
+		context.getBeanFactory().registerSingleton(registryConfigBeanName, registryConfig);
+		logger.info("register registryConfig success");
+		
+		List<String> registryList = properties.getRegistryList();
+		registryList.stream().forEach(className -> {
+			try {
+				Class<?> clazz = Class.forName(className);
+				ReferenceConfig<?> referenceConfig = new ReferenceConfig<>();
+				referenceConfig.setInterface(clazz);	
+				referenceConfig.setApplication(applicationConfig);
+				referenceConfig.setCheck(properties.isCheck());
+				referenceConfig.setVersion(properties.getVersion());
+				referenceConfig.setTimeout(properties.getTimeOut());
+				referenceConfig.setRetries(0);
+				referenceConfig.setRegistry(registryConfig);
+				context.getBeanFactory().registerSingleton(className, referenceConfig);
+				logger.info(String.format("register %s success", className));
+			} catch (ClassNotFoundException e) {
+				logger.info(String.format("register %s fail", className),e);
+			}
+		});
+		
 	}
 
 	private boolean isAcceptReturnType(Class<?> clazz) {
