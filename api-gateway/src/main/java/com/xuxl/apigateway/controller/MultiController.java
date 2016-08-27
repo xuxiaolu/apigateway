@@ -22,6 +22,7 @@ import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.WebAsyncTask;
 
@@ -44,15 +45,17 @@ public class MultiController {
 
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
-	@RequestMapping
-	public WebAsyncTask<Response> mult(HttpServletRequest request) throws ServiceException {
-		String methodName = request.getParameter("_mt");
-		if(StringUtils.hasText(methodName)) {
+	@RequestMapping()
+	public WebAsyncTask<Response> mult(HttpServletRequest request,@RequestParam (value = "mt",required = true) String mt) throws ServiceException {
 			Callable<Response> callResponse = new Callable<Response>() {
 				@Override
 				public Response call() throws Exception {
 					long start = System.currentTimeMillis();
-					ApiDefine apiDefine = ApiHolder.getRegisterMap().get(methodName);
+					ApiDefine apiDefine = ApiHolder.getRegisterMap().get(mt);
+					if(Objects.isNull(apiDefine)) {
+						logger.error(String.format("%s is error", mt));
+						throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
+					}
 					Object object = apiDefine.getObject();
 					Method method = apiDefine.getMethod();
 					ApiParameterDefine[] apiParameterDefines = apiDefine.getApiParameterArray();
@@ -110,10 +113,7 @@ public class MultiController {
 				}
 			};
 		  return new WebAsyncTask<Response>(6000, callResponse);
-		} else {
-			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
-	}
 	
 	private Object[] parseParamater(ApiParameterDefine[] apiParameterDefines, HttpServletRequest request) throws ServiceException {
 		if (apiParameterDefines == null) {
