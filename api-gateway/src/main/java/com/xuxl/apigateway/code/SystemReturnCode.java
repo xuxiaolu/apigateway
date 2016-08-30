@@ -25,6 +25,11 @@ public class SystemReturnCode extends AbstractReturnCode {
 	
 	public final static SystemReturnCode UNKNOWN_METHOD_ERROR = new SystemReturnCode("mt参数服务端无法识别", CODE_UNKNOWN_METHOD_ERROR);
 	
+	public final static int CODE_UNKNOWN_ERROR = -130;
+	
+	public final static SystemReturnCode UNKNOWN_ERROR = new SystemReturnCode("未知错误", CODE_UNKNOWN_ERROR);
+	
+	
 	public final static int CODE_PARAMETER_ERROR = -140;
 	
 	public final static SystemReturnCode PARAMETER_ERROR = new SystemReturnCode("参数错误", CODE_PARAMETER_ERROR);
