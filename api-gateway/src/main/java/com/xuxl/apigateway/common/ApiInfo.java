@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-public class ApiDefine implements Serializable {
+public class ApiInfo implements Serializable {
 	
 	/**
 	 * 
@@ -24,12 +24,12 @@ public class ApiDefine implements Serializable {
 	private Method method;
 	
 	
-	private ApiMethodDefine apiMethodDefine;
+	private ApiMethodInfo apiMethodInfo;
 	
 	@JsonIgnore
-	private Object object;
+	private Object proxy;
 	
-	private ApiParameterDefine[] apiParameterArray;
+	private ApiParameterInfo[] apiParameterInfos;
 	
 	public String getPrefix() {
 		return prefix;
@@ -55,20 +55,20 @@ public class ApiDefine implements Serializable {
 		this.apiName = apiName;
 	}
 
-	public Object getObject() {
-		return object;
+	public Object getProxy() {
+		return proxy;
 	}
 
-	public void setObject(Object object) {
-		this.object = object;
+	public void setProxy(Object proxy) {
+		this.proxy = proxy;
 	}
 
-	public ApiParameterDefine[] getApiParameterArray() {
-		return apiParameterArray;
+	public ApiParameterInfo[] getApiParameterInfos() {
+		return apiParameterInfos;
 	}
 
-	public void setApiParameterArray(ApiParameterDefine[] apiParameterArray) {
-		this.apiParameterArray = apiParameterArray;
+	public void setApiParameterInfos(ApiParameterInfo[] apiParameterInfos) {
+		this.apiParameterInfos = apiParameterInfos;
 	}
 
 	public Method getMethod() {
@@ -79,12 +79,12 @@ public class ApiDefine implements Serializable {
 		this.method = method;
 	}
 
-	public ApiMethodDefine getApiMethodDefine() {
-		return apiMethodDefine;
+	public ApiMethodInfo getApiMethodInfo() {
+		return apiMethodInfo;
 	}
 
-	public void setApiMethodDefine(ApiMethodDefine apiMethodDefine) {
-		this.apiMethodDefine = apiMethodDefine;
+	public void setApiMethodInfo(ApiMethodInfo apiMethodInfo) {
+		this.apiMethodInfo = apiMethodInfo;
 	}
 	
 }

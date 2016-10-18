@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.xuxl.apigateway.common.ApiDefine;
+import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiHolder;
 
 
@@ -18,15 +18,15 @@ import com.xuxl.apigateway.common.ApiHolder;
 public class DocsController {
 	
 	@RequestMapping
-	public Map<String, List<ApiDefine>> document() {
-		Map<String, List<ApiDefine>> result = new HashMap<>();
-		List<ApiDefine> apiDefineList = new LinkedList<>();
-		Map<String,ApiDefine> registerMap = ApiHolder.getRegisterMap();
+	public Map<String, List<ApiInfo>> document() {
+		Map<String, List<ApiInfo>> result = new HashMap<>();
+		List<ApiInfo> apiDefineList = new LinkedList<>();
+		Map<String,ApiInfo> registerMap = ApiHolder.getRegisterMap();
 		registerMap.forEach((key,value) -> {
 			apiDefineList.add(value);
 		});
 		if(!apiDefineList.isEmpty()) {
-			result = apiDefineList.stream().collect(Collectors.groupingBy(ApiDefine :: getPrefix));
+			result = apiDefineList.stream().collect(Collectors.groupingBy(ApiInfo :: getPrefix));
 		}
 		
 		return result;

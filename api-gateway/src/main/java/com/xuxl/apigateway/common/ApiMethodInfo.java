@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-public class ApiMethodDefine implements Serializable {
+public class ApiMethodInfo implements Serializable {
 
 	/**
 	 * 

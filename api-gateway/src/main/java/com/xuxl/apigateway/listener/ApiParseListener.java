@@ -27,12 +27,10 @@ import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.config.ApplicationConfig;
 import com.alibaba.dubbo.config.ReferenceConfig;
 import com.alibaba.dubbo.config.RegistryConfig;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.xuxl.apigateway.common.ApiDefine;
 import com.xuxl.apigateway.common.ApiHolder;
-import com.xuxl.apigateway.common.ApiMethodDefine;
-import com.xuxl.apigateway.common.ApiParameterDefine;
+import com.xuxl.apigateway.common.ApiInfo;
+import com.xuxl.apigateway.common.ApiMethodInfo;
+import com.xuxl.apigateway.common.ApiParameterInfo;
 import com.xuxl.apigateway.config.DubboProperties;
 import com.xuxl.common.annotation.ApiGroup;
 import com.xuxl.common.annotation.ApiParameter;
@@ -57,10 +55,9 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 	
 	@Override
 	public void onApplicationEvent(ContextRefreshedEvent event) {
-		ObjectMapper mapper = new ObjectMapper();
 		ApplicationContext context = event.getApplicationContext();
 		registerDubboBean(context);
-		Map<String,ApiDefine> dubboRegisterMap = new HashMap<>();
+		Map<String,ApiInfo> dubboRegisterMap = new HashMap<>();
 		
 		Map<String,String> registryMap = properties.getRegistryMap();
 		Set<String> classNames = registryMap.keySet();
@@ -70,78 +67,45 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
 				if(Objects.nonNull(group)) {
 					String prefix = group.name();
-					Object object = getRefer(context, className);
+					Object proxy = getRefer(context, className);
 					Method[] methodArray = clazz.getMethods();
 					Stream.of(methodArray).forEach(method -> {
 						HttpApi httpApi = method.getAnnotation(HttpApi.class);
 						if(Objects.nonNull(httpApi)) {
 							String suffix = httpApi.name();
 							String name = prefix + SEPARATOR + suffix;
-							ApiMethodDefine methodDefine = new ApiMethodDefine();
-							methodDefine.setDescription(httpApi.desc());
-							methodDefine.setOwner(httpApi.owner());
-							methodDefine.setApiType(httpApi.type());
+							ApiMethodInfo apiMethodInfo = new ApiMethodInfo();
+							apiMethodInfo.setDescription(httpApi.desc());
+							apiMethodInfo.setOwner(httpApi.owner());
+							apiMethodInfo.setApiType(httpApi.type());
+							
 							Class<?> returnType = method.getReturnType();
 							if(Collection.class.isAssignableFrom(returnType)) {
-								methodDefine.setReturnType(returnType);
+								apiMethodInfo.setReturnType(returnType);
 								Type genericType = ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[0];
 								Class<?> genericClazz = (Class<?>) genericType;
 								if(isAcceptReturnType(genericClazz)) {
-									methodDefine.setGenericType(genericClazz);
-									try {
-										Object instance = genericClazz.newInstance();
-										String json = mapper.writeValueAsString(instance);
-										methodDefine.setJson(json);
-									} catch (InstantiationException e) {
-										e.printStackTrace();
-									} catch (IllegalAccessException e) {
-										e.printStackTrace();
-									} catch (JsonProcessingException e) {
-										e.printStackTrace();
-									}
+									apiMethodInfo.setGenericType(genericClazz);
 								} else {
 									
 								}
 							} else if(returnType.isArray()) {
-								methodDefine.setReturnType(returnType);
+								apiMethodInfo.setReturnType(returnType);
 								Class<?> genericClazz = returnType.getComponentType();
 								if(isAcceptReturnType(genericClazz)) {
-									methodDefine.setGenericType(genericClazz);
-									try {
-										Object instance = genericClazz.newInstance();
-										String json = mapper.writeValueAsString(instance);
-										methodDefine.setJson(json);
-									} catch (InstantiationException e) {
-										e.printStackTrace();
-									} catch (IllegalAccessException e) {
-										e.printStackTrace();
-									} catch (JsonProcessingException e) {
-										e.printStackTrace();
-									}
+									apiMethodInfo.setGenericType(genericClazz);
 								}  else {
 									
 								}
 							} else if (isAcceptReturnType(returnType)) {
-								methodDefine.setReturnType(returnType);
-								try {
-									Object instance = returnType.newInstance();
-									String json = mapper.writeValueAsString(instance);
-									methodDefine.setJson(json);
-								} catch (InstantiationException e) {
-									e.printStackTrace();
-								} catch (IllegalAccessException e) {
-									e.printStackTrace();
-								} catch (JsonProcessingException e) {
-									e.printStackTrace();
-								}
-								
+								apiMethodInfo.setReturnType(returnType);
 							} else {
 								
 							}
-							ApiDefine api = new ApiDefine();
-							api.setApiMethodDefine(methodDefine);
-							api.setClassName(clazz.getName());
-							api.setObject(object);
+							ApiInfo api = new ApiInfo();
+							api.setApiMethodInfo(apiMethodInfo);
+							api.setClassName(className);
+							api.setProxy(proxy);
 							api.setMethod(method);
 							api.setApiName(name);
 							api.setPrefix(prefix);
@@ -149,9 +113,9 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 							if(parameterArray.length == 0) {
 								dubboRegisterMap.put(name, api);
 							} else {
-								ApiParameterDefine[] apiParameterDefineArray = new ApiParameterDefine[parameterArray.length];
+								ApiParameterInfo[] apiParameterInfos = new ApiParameterInfo[parameterArray.length];
 								for(int i = 0,size = parameterArray.length; i < size; i++) {
-									ApiParameterDefine apiParameterDefine = new ApiParameterDefine();
+									ApiParameterInfo apiParameterInfo = new ApiParameterInfo();
 									Parameter parameter = parameterArray[i];
 									ApiParameter apiParameter = parameter.getAnnotation(ApiParameter.class);
 									if(Objects.nonNull(apiParameter)) {
@@ -162,18 +126,18 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 										String description = apiParameter.desc();
 										if(Collection.class.isAssignableFrom(parameterType)) {
 											Class<?> genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
-											apiParameterDefine.setGenericParameterType(genericParameterType);
+											apiParameterInfo.setGenericParameterType(genericParameterType);
 										}
 										if(parameterType.isArray()) {
 											Class<?> genericParameterType = parameterType.getComponentType();
-											apiParameterDefine.setGenericParameterType(genericParameterType);
+											apiParameterInfo.setGenericParameterType(genericParameterType);
 										}
-										apiParameterDefine.setType(parameterType);
-										apiParameterDefine.setName(parameterName);
-										apiParameterDefine.setDefaultValue(defaultValue);
-										apiParameterDefine.setRequired(isRequired);
-										apiParameterDefine.setDescription(description);
-										apiParameterDefineArray[i] = apiParameterDefine;
+										apiParameterInfo.setType(parameterType);
+										apiParameterInfo.setName(parameterName);
+										apiParameterInfo.setDefaultValue(defaultValue);
+										apiParameterInfo.setRequired(isRequired);
+										apiParameterInfo.setDescription(description);
+										apiParameterInfos[i] = apiParameterInfo;
 									} else {
 										Class<?> parameterType = parameter.getType();
 										String parameterName = parameter.getName();
@@ -182,21 +146,21 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 										
 										if(Collection.class.isAssignableFrom(parameterType)) {
 											Class<?> genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
-											apiParameterDefine.setGenericParameterType(genericParameterType);
+											apiParameterInfo.setGenericParameterType(genericParameterType);
 										}
 										if(parameterType.isArray()) {
 											Class<?> genericParameterType = parameterType.getComponentType();
-											apiParameterDefine.setGenericParameterType(genericParameterType);
+											apiParameterInfo.setGenericParameterType(genericParameterType);
 										}
 										
-										apiParameterDefine.setType(parameterType);
-										apiParameterDefine.setName(parameterName);
-										apiParameterDefine.setDefaultValue(defaultValue);
-										apiParameterDefine.setRequired(isRequired);
-										apiParameterDefineArray[i] = apiParameterDefine;
+										apiParameterInfo.setType(parameterType);
+										apiParameterInfo.setName(parameterName);
+										apiParameterInfo.setDefaultValue(defaultValue);
+										apiParameterInfo.setRequired(isRequired);
+										apiParameterInfos[i] = apiParameterInfo;
 									}
 								}
-								api.setApiParameterArray(apiParameterDefineArray);
+								api.setApiParameterInfos(apiParameterInfos);
 								dubboRegisterMap.put(name, api);
 							}
 						}

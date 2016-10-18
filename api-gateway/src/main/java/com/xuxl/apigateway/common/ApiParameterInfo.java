@@ -2,7 +2,7 @@ package com.xuxl.apigateway.common;
 
 import java.io.Serializable;
 
-public class ApiParameterDefine implements Serializable {
+public class ApiParameterInfo implements Serializable {
 	
     /**
 	 * 

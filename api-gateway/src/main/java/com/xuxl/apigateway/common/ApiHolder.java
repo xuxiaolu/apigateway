@@ -4,13 +4,13 @@ import java.util.Map;
 
 public class ApiHolder {
 	
-	private static Map<String,ApiDefine> registerMap;
+	private static Map<String,ApiInfo> registerMap;
 
-	public static Map<String, ApiDefine> getRegisterMap() {
+	public static Map<String, ApiInfo> getRegisterMap() {
 		return registerMap;
 	}
 
-	public static void setRegisterMap(Map<String, ApiDefine> registerMap) {
+	public static void setRegisterMap(Map<String, ApiInfo> registerMap) {
 		ApiHolder.registerMap = registerMap;
 	}
 	

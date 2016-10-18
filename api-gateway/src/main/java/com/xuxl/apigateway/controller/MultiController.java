@@ -30,9 +30,9 @@ import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.rpc.RpcException;
 import com.xuxl.apigateway.code.SystemReturnCode;
-import com.xuxl.apigateway.common.ApiDefine;
 import com.xuxl.apigateway.common.ApiHolder;
-import com.xuxl.apigateway.common.ApiParameterDefine;
+import com.xuxl.apigateway.common.ApiInfo;
+import com.xuxl.apigateway.common.ApiParameterInfo;
 import com.xuxl.apigateway.common.Response;
 import com.xuxl.apigateway.converter.StringToDateConverter;
 import com.xuxl.apigateway.listener.ApiParseListener;
@@ -46,98 +46,113 @@ public class MultiController {
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
 	@RequestMapping("/{prefix}/{suffix}")
-	public WebAsyncTask<Response> mult(HttpServletRequest request,
-			@PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
+	public WebAsyncTask<Response> mult(HttpServletRequest request, @PathVariable String prefix,
+			@PathVariable String suffix) throws ServiceException {
+		logger.info(getIp(request));
 		String requestMethod = request.getMethod();
 		String mt = prefix + ApiParseListener.SEPARATOR + suffix;
-		ApiDefine apiDefine = ApiHolder.getRegisterMap().get(mt);
-		if (Objects.isNull(apiDefine)) {
+		ApiInfo apiInfo = ApiHolder.getRegisterMap().get(mt);
+		if (Objects.isNull(apiInfo)) {
 			logger.error(String.format("%s is error", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
-		String type = apiDefine.getApiMethodDefine().getApiType();
-		if(!requestMethod.equalsIgnoreCase(type)) {
-			logger.error(String.format("%s is error,requestMethod is %s", mt,type));
+		String type = apiInfo.getApiMethodInfo().getApiType();
+		if (!requestMethod.equalsIgnoreCase(type)) {
+			logger.error(String.format("%s is error,requestMethod must be %s", mt, type.toUpperCase()));
 			throw new ServiceException(SystemReturnCode.REQUEST_METHOD_ERROR);
 		}
-		
-		Object object = apiDefine.getObject();
-		logger.info(object.toString());
-		if(Objects.isNull(object)) {
+		Object proxy = apiInfo.getProxy();
+		if (Objects.isNull(proxy)) {
 			logger.error(String.format("%s参数没有对应的处理器", mt));
 			throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
 		}
-		Method method = apiDefine.getMethod();
-		if(Objects.isNull(method)) {
+		Method method = apiInfo.getMethod();
+		if (Objects.isNull(method)) {
 			logger.error(String.format("%s参数没有对应的处理方法", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
-		ApiParameterDefine[] apiParameterDefines = apiDefine.getApiParameterArray();
-		Object[] objectArray = parseParamater(apiParameterDefines, request);
-		Callable<Response> callResponse = new Callable<Response>() {
-			@Override
-			public Response call() throws Exception {
-				long start = System.currentTimeMillis();
-				try {
-					Object result = method.invoke(object, objectArray);
-					Response response = new Response();
-					response.setResult(result);
-					return response;
-				} catch (IllegalAccessException e) {
-					logger.error("安全异常", e);
-					throw new ServiceException(SystemReturnCode.SECURITY_ERROR);
-				} catch (IllegalArgumentException e) {
-					logger.error("参数错误", e);
-					throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
-				} catch (InvocationTargetException e) {
-					Throwable exception = e.getTargetException();
-					if (exception instanceof ServiceException) {
-						logger.error(e.getTargetException());
-						throw (ServiceException) e.getTargetException();
-					} else if (exception instanceof RpcException) {
-						RpcException rpcException = (RpcException) e.getTargetException();
-						int code = rpcException.getCode();
-						if (code == RpcException.UNKNOWN_EXCEPTION) {
-							logger.error("dubbo服务找不到", rpcException);
-							throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
-						} else if (code == RpcException.FORBIDDEN_EXCEPTION) {
-							logger.error("禁止访问目标接口", rpcException);
-							throw new ServiceException(SystemReturnCode.FORBIDDED_ERROR);
-						} else if (code == RpcException.NETWORK_EXCEPTION) {
-							logger.error("禁止访问目标接口", rpcException);
-							throw new ServiceException(SystemReturnCode.NETWORK_ERROR);
-						} else if (code == RpcException.SERIALIZATION_EXCEPTION) {
-							logger.error("序列化错误", rpcException);
-							throw new ServiceException(SystemReturnCode.SERIALIZATION_ERROR);
-						} else if (code == RpcException.TIMEOUT_EXCEPTION) {
-							logger.error("访问目标接口超时", rpcException);
-							throw new ServiceException(SystemReturnCode.TIMEOUT_ERROR);
-						}
-					} else {
-						logger.error("未知错误", exception);
-						throw new ServiceException(SystemReturnCode.UNKNOWN_ERROR);
+		ApiParameterInfo[] apiParameterInfos = apiInfo.getApiParameterInfos();
+		Object[] paramaters = parseParamater(apiParameterInfos, request);
+		Callable<Response> callResponse = () -> {
+			long start = System.currentTimeMillis();
+			try {
+				Object result = method.invoke(proxy, paramaters);
+				Response response = new Response();
+				response.setResult(result);
+				return response;
+			} catch (IllegalAccessException e) {
+				logger.error("安全异常", e);
+				throw new ServiceException(SystemReturnCode.SECURITY_ERROR);
+			} catch (IllegalArgumentException e) {
+				logger.error("参数错误", e);
+				throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
+			} catch (InvocationTargetException e) {
+				Throwable exception = e.getTargetException();
+				if (exception instanceof ServiceException) {
+					logger.error(e.getTargetException());
+					throw (ServiceException) e.getTargetException();
+				} else if (exception instanceof RpcException) {
+					RpcException rpcException = (RpcException) e.getTargetException();
+					int code = rpcException.getCode();
+					if (code == RpcException.UNKNOWN_EXCEPTION) {
+						logger.error("dubbo服务找不到", rpcException);
+						throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
+					} else if (code == RpcException.FORBIDDEN_EXCEPTION) {
+						logger.error("禁止访问目标接口", rpcException);
+						throw new ServiceException(SystemReturnCode.FORBIDDED_ERROR);
+					} else if (code == RpcException.NETWORK_EXCEPTION) {
+						logger.error("网络错误", rpcException);
+						throw new ServiceException(SystemReturnCode.NETWORK_ERROR);
+					} else if (code == RpcException.SERIALIZATION_EXCEPTION) {
+						logger.error("序列化错误", rpcException);
+						throw new ServiceException(SystemReturnCode.SERIALIZATION_ERROR);
+					} else if (code == RpcException.TIMEOUT_EXCEPTION) {
+						logger.error("访问目标接口超时", rpcException);
+						throw new ServiceException(SystemReturnCode.TIMEOUT_ERROR);
 					}
-				} finally {
-					long end = System.currentTimeMillis() - start;
-					logger.info(String.format("invoke %s.%s method, take %s ms", apiDefine.getClassName(), method.getName(), end));
+				} else {
+					logger.error("未知错误", exception);
+					throw new ServiceException(SystemReturnCode.UNKNOWN_ERROR);
 				}
-				return null;
-			};
+			} finally {
+				long end = System.currentTimeMillis() - start;
+				logger.info(String.format("invoke %s.%s method, take %s ms", apiInfo.getClassName(), method.getName(),
+						end));
+			}
+			return null;
 		};
 		return new WebAsyncTask<Response>(6000, callResponse);
 	}
 
-	private Object[] parseParamater(ApiParameterDefine[] apiParameterDefines, HttpServletRequest request) throws ServiceException {
-		if (apiParameterDefines == null) {
+	private String getIp(HttpServletRequest request) {
+		String ip = request.getHeader("X-Forwarded-For");
+		if (StringUtils.hasText(ip) && !"unKnown".equalsIgnoreCase(ip)) {
+			int index = ip.indexOf(",");
+			if (index != -1) {
+				return ip.substring(0, index);
+			} else {
+				return ip;
+			}
+		}
+		ip = request.getHeader("X-Real-IP");
+		if (StringUtils.hasText(ip) && !"unKnown".equalsIgnoreCase(ip)) {
+			return ip;
+		}
+		return request.getRemoteAddr();
+	}
+
+	private Object[] parseParamater(ApiParameterInfo[] apiParameterInfos, HttpServletRequest request)
+			throws ServiceException {
+		if (apiParameterInfos == null) {
 			return null;
 		} else {
-			Object[] copyObjectArray = new Object[apiParameterDefines.length];
-			for (int i = 0, size = apiParameterDefines.length; i < size; i++) {
-				ApiParameterDefine define = apiParameterDefines[i];
-				String name = define.getName();
+			Object[] copyObjectArray = new Object[apiParameterInfos.length];
+			for (int i = 0, size = apiParameterInfos.length; i < size; i++) {
+				ApiParameterInfo apiParameterInfo = apiParameterInfos[i];
+				String name = apiParameterInfo.getName();
 				String value = request.getParameter(name);
-				Class<?> clazz = define.getType();
-				Class<?> genericParameterType = define.getGenericParameterType();
+				Class<?> clazz = apiParameterInfo.getType();
+				Class<?> genericParameterType = apiParameterInfo.getGenericParameterType();
 				// 对基本数据类型,包装类，list,日期需要在request中直接取，没有就抛异常
 				if (!isSimpleType(clazz)) {
 					// 不支持map
@@ -171,11 +186,11 @@ public class MultiController {
 					}
 				} else {
 					if (StringUtils.isEmpty(value)) {
-						if (define.isRequired()) {
+						if (apiParameterInfo.isRequired()) {
 							logger.error(String.format("%s field is required, so this can not be null", name));
 							throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 						} else {
-							String defaultValue = define.getDefaultValue();
+							String defaultValue = apiParameterInfo.getDefaultValue();
 							copyObjectArray[i] = fillValueWithDefaultValue(defaultValue, clazz);
 						}
 					} else {
