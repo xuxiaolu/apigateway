@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 import com.xuxl.common.code.AbstractReturnCode;
 
-public class ServiceException extends Exception implements Serializable {
+public class ServiceException extends RuntimeException implements Serializable {
 
 	/**
 	 * 

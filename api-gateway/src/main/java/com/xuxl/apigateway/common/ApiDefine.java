@@ -12,12 +12,17 @@ public class ApiDefine implements Serializable {
 	 */
 	private static final long serialVersionUID = 1L;
 
+	@JsonIgnore
 	private String className;
+	
+	@JsonIgnore
+	private String prefix;
 	
 	private String apiName;
 	
 	@JsonIgnore
 	private Method method;
+	
 	
 	private ApiMethodDefine apiMethodDefine;
 	
@@ -25,6 +30,14 @@ public class ApiDefine implements Serializable {
 	private Object object;
 	
 	private ApiParameterDefine[] apiParameterArray;
+	
+	public String getPrefix() {
+		return prefix;
+	}
+
+	public void setPrefix(String prefix) {
+		this.prefix = prefix;
+	}
 
 	public String getClassName() {
 		return className;

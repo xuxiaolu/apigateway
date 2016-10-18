@@ -1,6 +1,6 @@
 package com.xuxl.apigateway.config;
 
-import java.util.List;
+import java.util.Map;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -11,9 +11,7 @@ public class DubboProperties {
 	
 	private String address;
 	
-	private List<String> registryList;
-	
-	private String version;
+	private Map<String,String> registryMap;
 	
 	private boolean isCheck;
 	
@@ -36,15 +34,6 @@ public class DubboProperties {
 		this.address = address;
 	}
 
-
-	public String getVersion() {
-		return version;
-	}
-
-	public void setVersion(String version) {
-		this.version = version;
-	}
-
 	public boolean isCheck() {
 		return isCheck;
 	}
@@ -63,12 +52,12 @@ public class DubboProperties {
 		this.timeOut = timeOut;
 	}
 
-	public List<String> getRegistryList() {
-		return registryList;
+	public Map<String, String> getRegistryMap() {
+		return registryMap;
 	}
 
-	public void setRegistryList(List<String> registryList) {
-		this.registryList = registryList;
+	public void setRegistryMap(Map<String, String> registryMap) {
+		this.registryMap = registryMap;
 	}
 
 }

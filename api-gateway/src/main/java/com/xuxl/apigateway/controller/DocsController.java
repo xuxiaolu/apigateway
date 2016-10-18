@@ -26,7 +26,7 @@ public class DocsController {
 			apiDefineList.add(value);
 		});
 		if(!apiDefineList.isEmpty()) {
-			result = apiDefineList.stream().collect(Collectors.groupingBy(ApiDefine :: getClassName));
+			result = apiDefineList.stream().collect(Collectors.groupingBy(ApiDefine :: getPrefix));
 		}
 		
 		return result;

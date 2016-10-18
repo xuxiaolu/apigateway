@@ -15,7 +15,7 @@ public interface UserService {
 	 * @param age
 	 * @return
 	 */
-	@HttpApi(desc = "根据年龄获得用户", name = "user.age")
+	@HttpApi(desc = "根据年龄获得用户", name = "age",type = "get")
 	User getUser(@ApiParameter(desc = "年龄", name = "age", required = true) int age);
 	
 	/**
@@ -23,7 +23,7 @@ public interface UserService {
 	 * @param name
 	 * @return
 	 */
-	@HttpApi(desc = "根据名字获得用户", name = "user.name")
+	@HttpApi(desc = "根据名字获得用户", name = "name",type = "get")
 	User getUser(@ApiParameter(desc = "名字", name = "name", required = true) String name);
 	
 	/**
@@ -31,7 +31,7 @@ public interface UserService {
 	 * @param date
 	 * @return
 	 */
-	@HttpApi(desc = "根据生日获得用户", name = "user.birthday")
+	@HttpApi(desc = "根据生日获得用户", name = "birthday", type = "get")
 	User getUser(@ApiParameter(desc = "生日", name = "birthday", required = true) Date date);
 
 }

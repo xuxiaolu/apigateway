@@ -29,5 +29,11 @@ public @interface HttpApi {
      * @return
      */
     String owner() default "";
+    
+    /**
+     * 请求方式,get,post
+     * @return
+     */
+    String type();
 
 }

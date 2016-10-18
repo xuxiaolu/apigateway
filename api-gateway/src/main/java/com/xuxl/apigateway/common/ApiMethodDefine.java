@@ -2,6 +2,8 @@ package com.xuxl.apigateway.common;
 
 import java.io.Serializable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public class ApiMethodDefine implements Serializable {
 
 	/**
@@ -9,6 +11,7 @@ public class ApiMethodDefine implements Serializable {
 	 */
 	private static final long serialVersionUID = 1L;
 	
+	@JsonIgnore
 	private Class<?> returnType;
 	
 	/**
@@ -19,6 +22,18 @@ public class ApiMethodDefine implements Serializable {
 	private String description;
 	
 	private String owner;
+	
+	private String apiType;
+	
+	private String json;
+	
+	public String getApiType() {
+		return apiType;
+	}
+
+	public void setApiType(String apiType) {
+		this.apiType = apiType;
+	}
 
 	public Class<?> getReturnType() {
 		return returnType;
@@ -51,7 +66,14 @@ public class ApiMethodDefine implements Serializable {
 	public void setGenericType(Class<?> genericType) {
 		this.genericType = genericType;
 	}
-	
+
+	public String getJson() {
+		return json;
+	}
+
+	public void setJson(String json) {
+		this.json = json;
+	}
 	
 
 }

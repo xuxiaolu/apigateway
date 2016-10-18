@@ -20,9 +20,9 @@ import org.springframework.beans.TypeConverter;
 import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.WebAsyncTask;
 
@@ -35,6 +35,7 @@ import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiParameterDefine;
 import com.xuxl.apigateway.common.Response;
 import com.xuxl.apigateway.converter.StringToDateConverter;
+import com.xuxl.apigateway.listener.ApiParseListener;
 import com.xuxl.common.exception.ServiceException;
 import com.xuxl.common.utils.JsonUtil;
 
@@ -44,15 +45,24 @@ public class MultiController {
 
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
-	@RequestMapping()
+	@RequestMapping("/{prefix}/{suffix}")
 	public WebAsyncTask<Response> mult(HttpServletRequest request,
-			@RequestParam(value = "mt", required = true) String mt) throws ServiceException {
+			@PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
+		String requestMethod = request.getMethod();
+		String mt = prefix + ApiParseListener.SEPARATOR + suffix;
 		ApiDefine apiDefine = ApiHolder.getRegisterMap().get(mt);
 		if (Objects.isNull(apiDefine)) {
 			logger.error(String.format("%s is error", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
+		String type = apiDefine.getApiMethodDefine().getApiType();
+		if(!requestMethod.equalsIgnoreCase(type)) {
+			logger.error(String.format("%s is error,requestMethod is %s", mt,type));
+			throw new ServiceException(SystemReturnCode.REQUEST_METHOD_ERROR);
+		}
+		
 		Object object = apiDefine.getObject();
+		logger.info(object.toString());
 		if(Objects.isNull(object)) {
 			logger.error(String.format("%s参数没有对应的处理器", mt));
 			throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);

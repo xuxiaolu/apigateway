@@ -49,4 +49,8 @@ public class SystemReturnCode extends AbstractReturnCode {
 	public final static int CODE_NETWORK_ERROR = -180;
 	
 	public final static SystemReturnCode NETWORK_ERROR = new SystemReturnCode("网络错误", CODE_NETWORK_ERROR);
+	
+	public final static int CODE_REQUEST_METHOD_ERROR = -190;
+	
+	public final static SystemReturnCode REQUEST_METHOD_ERROR = new SystemReturnCode("请求方法错误", CODE_REQUEST_METHOD_ERROR);
 }
