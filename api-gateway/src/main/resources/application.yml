@@ -1,7 +1,7 @@
 spring:
   dubbo:
     name: apigateway
-    address: zookeeper://127.0.0.1:2181
+    address: zookeeper://zookeeperIp:2181
     check: false
     time-out: 6000
     registry-map:
