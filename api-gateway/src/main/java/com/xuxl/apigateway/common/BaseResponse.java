@@ -5,7 +5,7 @@ import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-public class Response implements Serializable {
+public class BaseResponse implements Serializable {
 	
 	/**
 	 * 

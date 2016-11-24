@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Configuration
 public class WebMvcConfiguration extends WebMvcConfigurerAdapter {
 
-	@Override
 	public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

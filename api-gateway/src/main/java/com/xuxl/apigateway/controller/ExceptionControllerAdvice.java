@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.xuxl.apigateway.code.SystemReturnCode;
-import com.xuxl.apigateway.common.Response;
+import com.xuxl.apigateway.common.BaseResponse;
 import com.xuxl.common.exception.ServiceException;
 
 
@@ -18,17 +18,17 @@ public class ExceptionControllerAdvice {
 	
 	@ExceptionHandler(Exception.class)
 	@ResponseBody
-	public Response processException(Exception exception) {
+	public BaseResponse processException(Exception exception) {
 		logger.error(exception);
-		Response response = new Response();
+		BaseResponse response = new BaseResponse();
 		if(exception instanceof ServiceException) {
 			ServiceException serviceException = (ServiceException) exception;
 			response.setCode(serviceException.getDisplayCode());
-			response.setMessage(serviceException.getDescription());
+			response.setMessage(serviceException.getMsg());
 		} else {
 			ServiceException serviceException = new ServiceException(SystemReturnCode.UNKNOWN_ERROR);
 			response.setCode(serviceException.getDisplayCode());
-			response.setMessage(serviceException.getDescription());
+			response.setMessage(serviceException.getMsg());
 		}
 		return response;
 		

@@ -13,6 +13,7 @@ public class SystemReturnCode extends AbstractReturnCode {
 		super(desc, code);
 	}
 	
+	
 	public final static int CODE_DUBBO_SERVICE_NOTFOUND_ERROR = -100;
 	
 	public final static SystemReturnCode DUBBO_SERVICE_NOTFOUND_ERROR = new SystemReturnCode("dubbo服务找不到", CODE_DUBBO_SERVICE_NOTFOUND_ERROR);
@@ -53,4 +54,8 @@ public class SystemReturnCode extends AbstractReturnCode {
 	public final static int CODE_REQUEST_METHOD_ERROR = -190;
 	
 	public final static SystemReturnCode REQUEST_METHOD_ERROR = new SystemReturnCode("请求方法错误", CODE_REQUEST_METHOD_ERROR);
+	
+	public final static int CODE_METHOD_PARAMETER_ERROR = -200;
+	
+	public final static SystemReturnCode METHOD_PARAMETER_ERROR = new SystemReturnCode("参数不合法", CODE_METHOD_PARAMETER_ERROR);
 }

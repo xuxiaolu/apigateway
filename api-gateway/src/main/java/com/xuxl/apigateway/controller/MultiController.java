@@ -33,7 +33,7 @@ import com.xuxl.apigateway.code.SystemReturnCode;
 import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
-import com.xuxl.apigateway.common.Response;
+import com.xuxl.apigateway.common.BaseResponse;
 import com.xuxl.apigateway.converter.StringToDateConverter;
 import com.xuxl.apigateway.listener.ApiParseListener;
 import com.xuxl.common.exception.ServiceException;
@@ -46,8 +46,7 @@ public class MultiController {
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
 	@RequestMapping("/{prefix}/{suffix}")
-	public WebAsyncTask<Response> mult(HttpServletRequest request, @PathVariable String prefix,
-			@PathVariable String suffix) throws ServiceException {
+	public WebAsyncTask<BaseResponse> mult(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
 		logger.info(getIp(request));
 		String requestMethod = request.getMethod();
 		String mt = prefix + ApiParseListener.SEPARATOR + suffix;
@@ -73,11 +72,11 @@ public class MultiController {
 		}
 		ApiParameterInfo[] apiParameterInfos = apiInfo.getApiParameterInfos();
 		Object[] paramaters = parseParamater(apiParameterInfos, request);
-		Callable<Response> callResponse = () -> {
+		Callable<BaseResponse> callResponse = () -> {
 			long start = System.currentTimeMillis();
 			try {
 				Object result = method.invoke(proxy, paramaters);
-				Response response = new Response();
+				BaseResponse response = new BaseResponse();
 				response.setResult(result);
 				return response;
 			} catch (IllegalAccessException e) {
@@ -121,7 +120,7 @@ public class MultiController {
 			}
 			return null;
 		};
-		return new WebAsyncTask<Response>(6000, callResponse);
+		return new WebAsyncTask<BaseResponse>(6000, callResponse);
 	}
 
 	private String getIp(HttpServletRequest request) {

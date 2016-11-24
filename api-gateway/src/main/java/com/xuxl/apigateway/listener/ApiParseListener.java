@@ -10,66 +10,47 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
-import com.alibaba.dubbo.config.ApplicationConfig;
 import com.alibaba.dubbo.config.ReferenceConfig;
-import com.alibaba.dubbo.config.RegistryConfig;
 import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiMethodInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
-import com.xuxl.apigateway.config.DubboProperties;
 import com.xuxl.common.annotation.ApiGroup;
 import com.xuxl.common.annotation.ApiParameter;
 import com.xuxl.common.annotation.Description;
 import com.xuxl.common.annotation.HttpApi;
 
 @Component
-@EnableConfigurationProperties(DubboProperties.class)
 public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ApiParseListener.class);
 	
 	public static final String SEPARATOR = "/";
 
-	@Autowired
-	private DubboProperties properties;
-	
-	private Object getRefer(ApplicationContext context,String className) {
-		ReferenceConfig<?> referenceConfig = context.getBean(className, ReferenceConfig.class);
-		return referenceConfig.get();
-	}
-	
-	@Override
+	@SuppressWarnings("rawtypes")
 	public void onApplicationEvent(ContextRefreshedEvent event) {
 		ApplicationContext context = event.getApplicationContext();
-		registerDubboBean(context);
+		Map<String, ReferenceConfig> configMap = context.getBeansOfType(ReferenceConfig .class);
 		Map<String,ApiInfo> dubboRegisterMap = new HashMap<>();
-		
-		Map<String,String> registryMap = properties.getRegistryMap();
-		Set<String> classNames = registryMap.keySet();
-		classNames.stream().forEach(className -> {
+		configMap.forEach((className,referenceConfig) -> {
 			try {
-				Class<?> clazz = Class.forName(className);
+				Class<?> clazz = Class.forName(className);	
 				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
 				if(Objects.nonNull(group)) {
 					String prefix = group.name();
-					Object proxy = getRefer(context, className);
-					Method[] methodArray = clazz.getMethods();
-					Stream.of(methodArray).forEach(method -> {
+					Object proxy = referenceConfig.get();
+					Method[] methods = clazz.getMethods();
+					Stream.of(methods).forEach(method -> {
 						HttpApi httpApi = method.getAnnotation(HttpApi.class);
 						if(Objects.nonNull(httpApi)) {
 							String suffix = httpApi.name();
@@ -171,40 +152,6 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 			}
 		});
 		ApiHolder.setRegisterMap(Collections.unmodifiableMap(dubboRegisterMap));
-	}
-
-	private void registerDubboBean(ApplicationContext applicationContext) {
-		ConfigurableApplicationContext context = (ConfigurableApplicationContext) applicationContext;
-		
-		String applicationConfigBeanName = "applicationConfig";
-		ApplicationConfig applicationConfig = new ApplicationConfig(properties.getName());
-		context.getBeanFactory().registerSingleton(applicationConfigBeanName, applicationConfig);
-		logger.info("register applicationConfig success");
-		
-		String registryConfigBeanName = "registryConfig";
-		RegistryConfig registryConfig = new RegistryConfig(properties.getAddress());
-		registryConfig.setProtocol("dubbo");
-		context.getBeanFactory().registerSingleton(registryConfigBeanName, registryConfig);
-		logger.info("register registryConfig success");
-		
-		Map<String,String> registryMap = properties.getRegistryMap();
-		registryMap.forEach((className,version) -> {
-			try {
-				Class<?> clazz = Class.forName(className);
-				ReferenceConfig<?> referenceConfig = new ReferenceConfig<>();
-				referenceConfig.setInterface(clazz);	
-				referenceConfig.setApplication(applicationConfig);
-				referenceConfig.setCheck(properties.isCheck());
-				referenceConfig.setVersion(version);
-				referenceConfig.setTimeout(properties.getTimeOut());
-				referenceConfig.setRetries(0);
-				referenceConfig.setRegistry(registryConfig);
-				context.getBeanFactory().registerSingleton(className, referenceConfig);
-				logger.info(String.format("register %s success", className));
-			} catch (ClassNotFoundException e) {
-				logger.error(String.format("register %s fail", className),e);
-			}
-		});
 	}
 
 	private boolean isAcceptReturnType(Class<?> clazz) {
