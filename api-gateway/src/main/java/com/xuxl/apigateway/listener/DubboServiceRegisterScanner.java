@@ -1,7 +1,11 @@
 package com.xuxl.apigateway.listener;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -15,12 +19,14 @@ import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.util.Assert;
 
 import com.alibaba.dubbo.config.ApplicationConfig;
+import com.alibaba.dubbo.config.MethodConfig;
 import com.alibaba.dubbo.config.ReferenceConfig;
 import com.alibaba.dubbo.config.RegistryConfig;
-import com.xuxl.common.annotation.DubboService;
+import com.xuxl.common.annotation.dubbo.api.DubboMethod;
+import com.xuxl.common.annotation.dubbo.api.DubboService;
 
 /**
- * 扫描DubboService注解的类
+ * 扫描DubboService注解的类并注册
  * @author xuxl
  *
  */
@@ -31,10 +37,6 @@ public class DubboServiceRegisterScanner extends ClassPathBeanDefinitionScanner 
 	private static final String DUBBO_REGISTER_ADDRESS = "spring.dubbo.address";
 	
 	private static final String DUBBO_SERVICE_CHECK = "spring.dubbo.check";
-	
-	private static final String DUBBO_SERVICE_TIMEOUT = "spring.dubbo.timeout";
-	
-	private static final String DUBBO_SERVICE_RETRIES = "spring.dubbo.retries";
 	
 	private ApplicationContext applicationContext;	
 
@@ -58,7 +60,6 @@ public class DubboServiceRegisterScanner extends ClassPathBeanDefinitionScanner 
 		Set<BeanDefinitionHolder> beanDefinitions = doScan(basePackages);
 		return beanDefinitions.size();
 	}
-	
 
 	protected Set<BeanDefinitionHolder> doScan(String... basePackages) {
 		Assert.notEmpty(basePackages, "At least one base package must be specified");
@@ -90,18 +91,28 @@ public class DubboServiceRegisterScanner extends ClassPathBeanDefinitionScanner 
 				String className = definition.getBeanClassName();
 				try {
 					Class<?> clazz = Class.forName(className);
-					ReferenceConfig<?> referenceConfig = new ReferenceConfig<>();
-					referenceConfig.setInterface(clazz);	
-					referenceConfig.setApplication(applicationConfig);
-					referenceConfig.setCheck(context.getEnvironment().getProperty(DUBBO_SERVICE_CHECK, Boolean.class));
+					ReferenceConfig<?> referenceBean = new ReferenceConfig<>();
+					referenceBean.setInterface(clazz);
+					Method[] methods = clazz.getDeclaredMethods();
+					List<MethodConfig> methodConfigList = Arrays.stream(methods).filter(method -> method.getAnnotation(DubboMethod.class) != null).map(method -> {
+						MethodConfig methodConfig = new MethodConfig();
+						DubboMethod dubboMethod = method.getAnnotation(DubboMethod.class);
+						methodConfig.setName(method.getName());
+						methodConfig.setRetries(dubboMethod.retries());
+						methodConfig.setTimeout(dubboMethod.timeOut());
+						return methodConfig;
+					}).collect(Collectors.toList());
+					referenceBean.setMethods(methodConfigList);
+					referenceBean.setApplication(applicationConfig);
+					referenceBean.setCheck(context.getEnvironment().getProperty(DUBBO_SERVICE_CHECK, Boolean.class));
 					DubboService service = clazz.getAnnotation(DubboService.class);
 					if(service != null) {
-						referenceConfig.setVersion(service.version());
+						referenceBean.setVersion(service.version());
+						referenceBean.setTimeout(service.timeout());
+						referenceBean.setRetries(service.retries());
 					}
-					referenceConfig.setTimeout(context.getEnvironment().getProperty(DUBBO_SERVICE_TIMEOUT, Integer.class));
-					referenceConfig.setRetries(context.getEnvironment().getProperty(DUBBO_SERVICE_RETRIES, Integer.class));
-					referenceConfig.setRegistry(registryConfig);
-					context.getBeanFactory().registerSingleton(className, referenceConfig);
+					referenceBean.setRegistry(registryConfig);
+					context.getBeanFactory().registerSingleton(className, referenceBean);
 					logger.info(String.format("register %s success", className));
 				} catch (ClassNotFoundException e) {
 					logger.error(String.format("register %s fail", className),e);

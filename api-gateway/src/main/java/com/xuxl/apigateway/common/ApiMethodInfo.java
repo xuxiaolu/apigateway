@@ -23,18 +23,10 @@ public class ApiMethodInfo implements Serializable {
 	
 	private String owner;
 	
-	private String apiType;
+	private String method;
 	
 	private String json;
 	
-	public String getApiType() {
-		return apiType;
-	}
-
-	public void setApiType(String apiType) {
-		this.apiType = apiType;
-	}
-
 	public Class<?> getReturnType() {
 		return returnType;
 	}
@@ -73,6 +65,14 @@ public class ApiMethodInfo implements Serializable {
 
 	public void setJson(String json) {
 		this.json = json;
+	}
+
+	public String getMethod() {
+		return method;
+	}
+
+	public void setMethod(String method) {
+		this.method = method;
 	}
 	
 

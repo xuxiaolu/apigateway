@@ -8,7 +8,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 
-import com.xuxl.common.annotation.DubboService;
+import com.xuxl.common.annotation.dubbo.api.DubboService;
+
 
 /**
  * 扫描DubboService注解的类

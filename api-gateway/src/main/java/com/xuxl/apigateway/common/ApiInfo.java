@@ -23,13 +23,14 @@ public class ApiInfo implements Serializable {
 	@JsonIgnore
 	private Method method;
 	
-	
 	private ApiMethodInfo apiMethodInfo;
 	
 	@JsonIgnore
 	private Object proxy;
 	
 	private ApiParameterInfo[] apiParameterInfos;
+	
+	private int timeOut;
 	
 	public String getPrefix() {
 		return prefix;
@@ -85,6 +86,14 @@ public class ApiInfo implements Serializable {
 
 	public void setApiMethodInfo(ApiMethodInfo apiMethodInfo) {
 		this.apiMethodInfo = apiMethodInfo;
+	}
+
+	public int getTimeOut() {
+		return timeOut;
+	}
+
+	public void setTimeOut(int timeOut) {
+		this.timeOut = timeOut;
 	}
 	
 }

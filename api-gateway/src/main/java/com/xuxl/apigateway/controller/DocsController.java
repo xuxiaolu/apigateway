@@ -28,7 +28,6 @@ public class DocsController {
 		if(!apiDefineList.isEmpty()) {
 			result = apiDefineList.stream().collect(Collectors.groupingBy(ApiInfo :: getPrefix));
 		}
-		
 		return result;
 	}
 

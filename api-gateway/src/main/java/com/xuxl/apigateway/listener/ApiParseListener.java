@@ -8,8 +8,10 @@ import java.sql.Date;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.springframework.context.ApplicationContext;
@@ -20,16 +22,22 @@ import org.springframework.util.ClassUtils;
 
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
+import com.alibaba.dubbo.config.MethodConfig;
 import com.alibaba.dubbo.config.ReferenceConfig;
 import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiMethodInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
-import com.xuxl.common.annotation.ApiGroup;
-import com.xuxl.common.annotation.ApiParameter;
-import com.xuxl.common.annotation.Description;
-import com.xuxl.common.annotation.HttpApi;
+import com.xuxl.common.annotation.http.api.ApiGroup;
+import com.xuxl.common.annotation.http.api.ApiParameter;
+import com.xuxl.common.annotation.http.api.Description;
+import com.xuxl.common.annotation.http.api.HttpApi;
 
+/**
+ * 生成rest api
+ * @author xuxl
+ *
+ */
 @Component
 public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
 	
@@ -37,28 +45,31 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 	
 	public static final String SEPARATOR = "/";
 
-	@SuppressWarnings("rawtypes")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onApplicationEvent(ContextRefreshedEvent event) {
 		ApplicationContext context = event.getApplicationContext();
-		Map<String, ReferenceConfig> configMap = context.getBeansOfType(ReferenceConfig .class);
+		Map<String, ReferenceConfig> configMap = context.getBeansOfType(ReferenceConfig.class);
 		Map<String,ApiInfo> dubboRegisterMap = new HashMap<>();
-		configMap.forEach((className,referenceConfig) -> {
+		configMap.forEach((className,referenceBean) -> {
 			try {
 				Class<?> clazz = Class.forName(className);	
 				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
-				if(Objects.nonNull(group)) {
+				if(group != null) {
 					String prefix = group.name();
-					Object proxy = referenceConfig.get();
+					Object proxy = referenceBean.get();
+					List<MethodConfig> methodConfigList = referenceBean.getMethods();
+					int timeOut = referenceBean.getTimeout();
+					int retries = referenceBean.getRetries();
 					Method[] methods = clazz.getMethods();
 					Stream.of(methods).forEach(method -> {
 						HttpApi httpApi = method.getAnnotation(HttpApi.class);
-						if(Objects.nonNull(httpApi)) {
+						if(httpApi != null) {
 							String suffix = httpApi.name();
 							String name = prefix + SEPARATOR + suffix;
 							ApiMethodInfo apiMethodInfo = new ApiMethodInfo();
 							apiMethodInfo.setDescription(httpApi.desc());
 							apiMethodInfo.setOwner(httpApi.owner());
-							apiMethodInfo.setApiType(httpApi.type());
+							apiMethodInfo.setMethod(httpApi.method());
 							
 							Class<?> returnType = method.getReturnType();
 							if(Collection.class.isAssignableFrom(returnType)) {
@@ -90,6 +101,13 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 							api.setMethod(method);
 							api.setApiName(name);
 							api.setPrefix(prefix);
+							Optional<MethodConfig> methodConfigOption = methodConfigList.stream().filter(methodConfig -> methodConfig.getName().equals(method.getName())).findFirst();
+							if(methodConfigOption.isPresent()) {
+								MethodConfig methodConfig = methodConfigOption.get();
+								api.setTimeOut(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
+							} else {
+								api.setTimeOut(retries > 0 ? (retries + 1) * timeOut : timeOut);
+							}
 							Parameter[] parameterArray = method.getParameters();
 							if(parameterArray.length == 0) {
 								dubboRegisterMap.put(name, api);

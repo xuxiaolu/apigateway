@@ -4,9 +4,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.sql.Date;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.StringJoiner;
 import java.util.concurrent.Callable;
 
 import javax.servlet.http.HttpServletRequest;
@@ -46,16 +48,16 @@ public class MultiController {
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
 	@RequestMapping("/{prefix}/{suffix}")
-	public WebAsyncTask<BaseResponse> mult(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
-		logger.info(getIp(request));
+	public WebAsyncTask<BaseResponse> multi(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
+		logger.info(String.format("ClientIp: %s,Url:%s",getClientIp(request),getRequestInfo(request)));
 		String requestMethod = request.getMethod();
 		String mt = prefix + ApiParseListener.SEPARATOR + suffix;
 		ApiInfo apiInfo = ApiHolder.getRegisterMap().get(mt);
-		if (Objects.isNull(apiInfo)) {
+		if (apiInfo == null) {
 			logger.error(String.format("%s is error", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
-		String type = apiInfo.getApiMethodInfo().getApiType();
+		String type = apiInfo.getApiMethodInfo().getMethod();
 		if (!requestMethod.equalsIgnoreCase(type)) {
 			logger.error(String.format("%s is error,requestMethod must be %s", mt, type.toUpperCase()));
 			throw new ServiceException(SystemReturnCode.REQUEST_METHOD_ERROR);
@@ -70,6 +72,7 @@ public class MultiController {
 			logger.error(String.format("%s参数没有对应的处理方法", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
+		int timeOut = apiInfo.getTimeOut();
 		ApiParameterInfo[] apiParameterInfos = apiInfo.getApiParameterInfos();
 		Object[] paramaters = parseParamater(apiParameterInfos, request);
 		Callable<BaseResponse> callResponse = () -> {
@@ -115,15 +118,33 @@ public class MultiController {
 				}
 			} finally {
 				long end = System.currentTimeMillis() - start;
-				logger.info(String.format("invoke %s.%s method, take %s ms", apiInfo.getClassName(), method.getName(),
-						end));
+				logger.info(String.format("invoke %s.%s method, take %s ms", apiInfo.getClassName(), method.getName(),end));
 			}
 			return null;
 		};
-		return new WebAsyncTask<BaseResponse>(6000, callResponse);
+		return new WebAsyncTask<BaseResponse>(timeOut, callResponse);
 	}
 
-	private String getIp(HttpServletRequest request) {
+	private String getRequestInfo(HttpServletRequest request) {
+		StringBuilder builder = new StringBuilder(request.getRequestURI());
+		StringJoiner jStringJoiner = new StringJoiner("&");
+		Map<String,String[]> map = request.getParameterMap();
+		map.forEach((key,value) -> {
+			StringBuilder sb = new StringBuilder(key);
+			sb.append("=");
+			StringJoiner joiner = new StringJoiner(",");
+			Arrays.stream(value).forEach(val -> joiner.add(val));
+			sb.append(joiner.toString());
+			jStringJoiner.add(sb);
+		});
+		if(jStringJoiner.toString().length() > 0) {
+			builder.append("?");
+			builder.append(jStringJoiner.toString());
+		}
+		return builder.toString();
+	}
+	
+	private String getClientIp(HttpServletRequest request) {
 		String ip = request.getHeader("X-Forwarded-For");
 		if (StringUtils.hasText(ip) && !"unKnown".equalsIgnoreCase(ip)) {
 			int index = ip.indexOf(",");
