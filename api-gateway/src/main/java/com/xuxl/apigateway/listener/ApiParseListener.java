@@ -12,26 +12,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 
-import com.alibaba.dubbo.common.logger.Logger;
-import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.config.MethodConfig;
 import com.alibaba.dubbo.config.ReferenceConfig;
-import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiMethodInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
-import com.xuxl.common.annotation.http.api.ApiGroup;
-import com.xuxl.common.annotation.http.api.ApiParameter;
-import com.xuxl.common.annotation.http.api.Description;
-import com.xuxl.common.annotation.http.api.HttpApi;
+import com.xuxl.common.annotation.http.api.Api;
+import com.xuxl.common.annotation.http.api.ApiModel;
+import com.xuxl.common.annotation.http.api.ApiOperation;
+import com.xuxl.common.annotation.http.api.ApiParam;
 
 /**
  * 生成rest api
@@ -41,35 +40,37 @@ import com.xuxl.common.annotation.http.api.HttpApi;
 @Component
 public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
 	
-	private static final Logger logger = LoggerFactory.getLogger(ApiParseListener.class);
-	
 	public static final String SEPARATOR = "/";
+	
+	private AtomicBoolean flag = new AtomicBoolean(false);
+	
+	private static Map<String,ApiInfo> registerMap;
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onApplicationEvent(ContextRefreshedEvent event) {
-		ApplicationContext context = event.getApplicationContext();
-		Map<String, ReferenceConfig> configMap = context.getBeansOfType(ReferenceConfig.class);
-		Map<String,ApiInfo> dubboRegisterMap = new HashMap<>();
-		configMap.forEach((className,referenceBean) -> {
-			try {
-				Class<?> clazz = Class.forName(className);	
-				ApiGroup group = clazz.getAnnotation(ApiGroup.class);
-				if(group != null) {
-					String prefix = group.name();
+		if(flag.compareAndSet(false, true)) {
+			ApplicationContext context = event.getApplicationContext();
+			Map<String, ReferenceConfig> configMap = context.getBeansOfType(ReferenceConfig.class);
+			Map<String,ApiInfo> dubboRegisterMap = new HashMap<>();
+			configMap.forEach((className,referenceBean) -> {
+				Class<?> clazz = referenceBean.getInterfaceClass();
+				Api api = AnnotationUtils.findAnnotation(clazz, Api.class);
+				if(api != null) {
+					String prefix = api.value();
 					Object proxy = referenceBean.get();
 					List<MethodConfig> methodConfigList = referenceBean.getMethods();
 					int timeOut = referenceBean.getTimeout();
 					int retries = referenceBean.getRetries();
 					Method[] methods = clazz.getMethods();
 					Stream.of(methods).forEach(method -> {
-						HttpApi httpApi = method.getAnnotation(HttpApi.class);
-						if(httpApi != null) {
-							String suffix = httpApi.name();
+						ApiOperation apiOperation = AnnotationUtils.findAnnotation(method, ApiOperation.class);
+						if(apiOperation != null) {
+							String suffix = apiOperation.value();
 							String name = prefix + SEPARATOR + suffix;
 							ApiMethodInfo apiMethodInfo = new ApiMethodInfo();
-							apiMethodInfo.setDescription(httpApi.desc());
-							apiMethodInfo.setOwner(httpApi.owner());
-							apiMethodInfo.setMethod(httpApi.method());
+							apiMethodInfo.setDescription(apiOperation.desc());
+							apiMethodInfo.setOwner(apiOperation.owner());
+							apiMethodInfo.setMethod(apiOperation.method());
 							
 							Class<?> returnType = method.getReturnType();
 							if(Collection.class.isAssignableFrom(returnType)) {
@@ -94,29 +95,29 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 							} else {
 								
 							}
-							ApiInfo api = new ApiInfo();
-							api.setApiMethodInfo(apiMethodInfo);
-							api.setClassName(className);
-							api.setProxy(proxy);
-							api.setMethod(method);
-							api.setApiName(name);
-							api.setPrefix(prefix);
+							ApiInfo apiInfo = new ApiInfo();
+							apiInfo.setApiMethodInfo(apiMethodInfo);
+							apiInfo.setClassName(className);
+							apiInfo.setProxy(proxy);
+							apiInfo.setMethod(method);
+							apiInfo.setApiName(name);
+							apiInfo.setPrefix(prefix);
 							Optional<MethodConfig> methodConfigOption = methodConfigList.stream().filter(methodConfig -> methodConfig.getName().equals(method.getName())).findFirst();
 							if(methodConfigOption.isPresent()) {
 								MethodConfig methodConfig = methodConfigOption.get();
-								api.setTimeOut(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
+								apiInfo.setTimeOut(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
 							} else {
-								api.setTimeOut(retries > 0 ? (retries + 1) * timeOut : timeOut);
+								apiInfo.setTimeOut(retries > 0 ? (retries + 1) * timeOut : timeOut);
 							}
 							Parameter[] parameterArray = method.getParameters();
 							if(parameterArray.length == 0) {
-								dubboRegisterMap.put(name, api);
+								dubboRegisterMap.put(name, apiInfo);
 							} else {
 								ApiParameterInfo[] apiParameterInfos = new ApiParameterInfo[parameterArray.length];
 								for(int i = 0,size = parameterArray.length; i < size; i++) {
 									ApiParameterInfo apiParameterInfo = new ApiParameterInfo();
 									Parameter parameter = parameterArray[i];
-									ApiParameter apiParameter = parameter.getAnnotation(ApiParameter.class);
+									ApiParam apiParameter = parameter.getAnnotation(ApiParam.class);
 									if(Objects.nonNull(apiParameter)) {
 										Class<?> parameterType = parameter.getType();
 										String parameterName = apiParameter.name();
@@ -159,21 +160,23 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 										apiParameterInfos[i] = apiParameterInfo;
 									}
 								}
-								api.setApiParameterInfos(apiParameterInfos);
-								dubboRegisterMap.put(name, api);
+								apiInfo.setApiParameterInfos(apiParameterInfos);
+								dubboRegisterMap.put(name, apiInfo);
 							}
 						}
 					});
 				}
-			} catch (ClassNotFoundException e) {
-				logger.error(String.format("%s is not found", className),e);
-			}
-		});
-		ApiHolder.setRegisterMap(Collections.unmodifiableMap(dubboRegisterMap));
+			});
+			registerMap = Collections.unmodifiableMap(dubboRegisterMap);
+		}
+	}
+	
+	public static Map<String, ApiInfo> getRegisterMap() {
+		return registerMap;
 	}
 
 	private boolean isAcceptReturnType(Class<?> clazz) {
-		return Date.class.isAssignableFrom(clazz) || String.class.isAssignableFrom(clazz) || Objects.nonNull(clazz.getAnnotation(Description.class)) || ClassUtils.isPrimitiveOrWrapper(clazz);
+		return Date.class.isAssignableFrom(clazz) || String.class.isAssignableFrom(clazz) || Objects.nonNull(clazz.getAnnotation(ApiModel.class)) || ClassUtils.isPrimitiveOrWrapper(clazz);
 	}
 	
 }

@@ -32,7 +32,6 @@ import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
 import com.alibaba.dubbo.rpc.RpcException;
 import com.xuxl.apigateway.code.SystemReturnCode;
-import com.xuxl.apigateway.common.ApiHolder;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
 import com.xuxl.apigateway.common.BaseResponse;
@@ -52,7 +51,7 @@ public class MultiController {
 		logger.info(String.format("ClientIp: %s,Url:%s",getClientIp(request),getRequestInfo(request)));
 		String requestMethod = request.getMethod();
 		String mt = prefix + ApiParseListener.SEPARATOR + suffix;
-		ApiInfo apiInfo = ApiHolder.getRegisterMap().get(mt);
+		ApiInfo apiInfo = ApiParseListener.getRegisterMap().get(mt);
 		if (apiInfo == null) {
 			logger.error(String.format("%s is error", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);

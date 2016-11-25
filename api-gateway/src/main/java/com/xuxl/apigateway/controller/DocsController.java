@@ -1,34 +1,39 @@
 package com.xuxl.apigateway.controller;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.xuxl.apigateway.common.ApiInfo;
-import com.xuxl.apigateway.common.ApiHolder;
+import com.xuxl.apigateway.common.DocResponse;
+import com.xuxl.apigateway.listener.ApiParseListener;
 
 
 @RestController
 @RequestMapping("/docs")
 public class DocsController {
 	
-	@RequestMapping
-	public Map<String, List<ApiInfo>> document() {
-		Map<String, List<ApiInfo>> result = new HashMap<>();
+	@RequestMapping(method = RequestMethod.GET)
+	public List<DocResponse> docs() {
+		List<DocResponse> responseList = new ArrayList<DocResponse>();
 		List<ApiInfo> apiDefineList = new LinkedList<>();
-		Map<String,ApiInfo> registerMap = ApiHolder.getRegisterMap();
+		Map<String,ApiInfo> registerMap = ApiParseListener.getRegisterMap();
 		registerMap.forEach((key,value) -> {
 			apiDefineList.add(value);
 		});
 		if(!apiDefineList.isEmpty()) {
-			result = apiDefineList.stream().collect(Collectors.groupingBy(ApiInfo :: getPrefix));
+			Map<String, List<ApiInfo>> result = apiDefineList.stream().collect(Collectors.groupingBy(ApiInfo :: getPrefix));
+			result.forEach((group,apiInfos) -> {
+				responseList.add(new DocResponse(group, apiInfos));
+			});
 		}
-		return result;
+		return responseList;
 	}
 
 }
