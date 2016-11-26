@@ -56,7 +56,7 @@ public class MultiController {
 			logger.error(String.format("%s is error", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
-		String type = apiInfo.getApiMethodInfo().getMethod();
+		String type = apiInfo.getMethodInfo().getType();
 		if (!requestMethod.equalsIgnoreCase(type)) {
 			logger.error(String.format("%s is error,requestMethod must be %s", mt, type.toUpperCase()));
 			throw new ServiceException(SystemReturnCode.REQUEST_METHOD_ERROR);
@@ -71,8 +71,8 @@ public class MultiController {
 			logger.error(String.format("%s参数没有对应的处理方法", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
-		int timeOut = apiInfo.getTimeOut();
-		ApiParameterInfo[] apiParameterInfos = apiInfo.getApiParameterInfos();
+		int timeout = apiInfo.getTimeout();
+		ApiParameterInfo[] apiParameterInfos = apiInfo.getParameterInfos();
 		Object[] paramaters = parseParamater(apiParameterInfos, request);
 		Callable<BaseResponse> callResponse = () -> {
 			long start = System.currentTimeMillis();
@@ -121,7 +121,7 @@ public class MultiController {
 			}
 			return null;
 		};
-		return new WebAsyncTask<BaseResponse>(timeOut, callResponse);
+		return new WebAsyncTask<BaseResponse>(timeout, callResponse);
 	}
 
 	private String getRequestInfo(HttpServletRequest request) {
@@ -160,18 +160,18 @@ public class MultiController {
 		return request.getRemoteAddr();
 	}
 
-	private Object[] parseParamater(ApiParameterInfo[] apiParameterInfos, HttpServletRequest request)
+	private Object[] parseParamater(ApiParameterInfo[] parameters, HttpServletRequest request)
 			throws ServiceException {
-		if (apiParameterInfos == null) {
+		if (parameters == null) {
 			return null;
 		} else {
-			Object[] copyObjectArray = new Object[apiParameterInfos.length];
-			for (int i = 0, size = apiParameterInfos.length; i < size; i++) {
-				ApiParameterInfo apiParameterInfo = apiParameterInfos[i];
+			Object[] objects = new Object[parameters.length];
+			for (int i = 0, size = parameters.length; i < size; i++) {
+				ApiParameterInfo apiParameterInfo = parameters[i];
 				String name = apiParameterInfo.getName();
 				String value = request.getParameter(name);
-				Class<?> clazz = apiParameterInfo.getType();
-				Class<?> genericParameterType = apiParameterInfo.getGenericParameterType();
+				Class<?> clazz = apiParameterInfo.getClazz();
+				Class<?> genericClazz = apiParameterInfo.getGenericClazz();
 				// 对基本数据类型,包装类，list,日期需要在request中直接取，没有就抛异常
 				if (!isSimpleType(clazz)) {
 					// 不支持map
@@ -195,9 +195,9 @@ public class MultiController {
 							Object object = BeanUtils.instantiateClass(clazz);
 							BeanWrapper beanWrapper = (BeanWrapper) getTypeConverter(object);
 							beanWrapper.setPropertyValues(mvps, true, true);
-							copyObjectArray[i] = beanWrapper.convertIfNecessary(object, clazz);
+							objects[i] = beanWrapper.convertIfNecessary(object, clazz);
 						} else {
-							copyObjectArray[i] = JsonUtil.convertObject(value, clazz);
+							objects[i] = JsonUtil.convertObject(value, clazz);
 						}
 					} catch (Exception e) {
 						logger.error(String.format("parse %s field has error, please check!", name));
@@ -210,14 +210,14 @@ public class MultiController {
 							throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
 						} else {
 							String defaultValue = apiParameterInfo.getDefaultValue();
-							copyObjectArray[i] = fillValueWithDefaultValue(defaultValue, clazz);
+							objects[i] = fillValueWithDefaultValue(defaultValue, clazz);
 						}
 					} else {
-						copyObjectArray[i] = fillValue(value, clazz, genericParameterType);
+						objects[i] = fillValue(value, clazz, genericClazz);
 					}
 				}
 			}
-			return copyObjectArray;
+			return objects;
 		}
 	}
 

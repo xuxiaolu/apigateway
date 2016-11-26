@@ -18,19 +18,21 @@ public class ApiInfo implements Serializable {
 	@JsonIgnore
 	private String prefix;
 	
-	private String apiName;
+	@JsonIgnore
+	private Object proxy;
 	
 	@JsonIgnore
 	private Method method;
 	
-	private ApiMethodInfo apiMethodInfo;
-	
 	@JsonIgnore
-	private Object proxy;
+	private int timeout;
 	
-	private ApiParameterInfo[] apiParameterInfos;
+	private String name;
 	
-	private int timeOut;
+	private ApiMethodInfo methodInfo;
+	
+	private ApiParameterInfo[] parameterInfos;
+	
 	
 	public String getPrefix() {
 		return prefix;
@@ -48,28 +50,12 @@ public class ApiInfo implements Serializable {
 		this.className = className;
 	}
 
-	public String getApiName() {
-		return apiName;
-	}
-
-	public void setApiName(String apiName) {
-		this.apiName = apiName;
-	}
-
 	public Object getProxy() {
 		return proxy;
 	}
 
 	public void setProxy(Object proxy) {
 		this.proxy = proxy;
-	}
-
-	public ApiParameterInfo[] getApiParameterInfos() {
-		return apiParameterInfos;
-	}
-
-	public void setApiParameterInfos(ApiParameterInfo[] apiParameterInfos) {
-		this.apiParameterInfos = apiParameterInfos;
 	}
 
 	public Method getMethod() {
@@ -80,20 +66,36 @@ public class ApiInfo implements Serializable {
 		this.method = method;
 	}
 
-	public ApiMethodInfo getApiMethodInfo() {
-		return apiMethodInfo;
+	public int getTimeout() {
+		return timeout;
 	}
 
-	public void setApiMethodInfo(ApiMethodInfo apiMethodInfo) {
-		this.apiMethodInfo = apiMethodInfo;
+	public void setTimeout(int timeout) {
+		this.timeout = timeout;
 	}
 
-	public int getTimeOut() {
-		return timeOut;
+	public String getName() {
+		return name;
 	}
 
-	public void setTimeOut(int timeOut) {
-		this.timeOut = timeOut;
+	public void setName(String name) {
+		this.name = name;
 	}
-	
+
+	public ApiMethodInfo getMethodInfo() {
+		return methodInfo;
+	}
+
+	public void setMethodInfo(ApiMethodInfo methodInfo) {
+		this.methodInfo = methodInfo;
+	}
+
+	public ApiParameterInfo[] getParameterInfos() {
+		return parameterInfos;
+	}
+
+	public void setParameterInfos(ApiParameterInfo[] parameterInfos) {
+		this.parameterInfos = parameterInfos;
+	}
+
 }

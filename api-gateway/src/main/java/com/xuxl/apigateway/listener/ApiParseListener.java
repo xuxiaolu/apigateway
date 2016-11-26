@@ -1,18 +1,23 @@
 package com.xuxl.apigateway.listener;
 
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.sql.Date;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.springframework.context.ApplicationContext;
@@ -27,8 +32,12 @@ import com.alibaba.dubbo.config.ReferenceConfig;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiMethodInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
+import com.xuxl.apigateway.common.ApiReturnFieldInfo;
+import com.xuxl.apigateway.common.ApiReturnInfo;
+import com.xuxl.apigateway.utils.DescriptionUtils;
 import com.xuxl.common.annotation.http.api.Api;
 import com.xuxl.common.annotation.http.api.ApiModel;
+import com.xuxl.common.annotation.http.api.ApiModelProperty;
 import com.xuxl.common.annotation.http.api.ApiOperation;
 import com.xuxl.common.annotation.http.api.ApiParam;
 
@@ -65,102 +74,73 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 					Stream.of(methods).forEach(method -> {
 						ApiOperation apiOperation = AnnotationUtils.findAnnotation(method, ApiOperation.class);
 						if(apiOperation != null) {
-							String suffix = apiOperation.value();
-							String name = prefix + SEPARATOR + suffix;
-							ApiMethodInfo apiMethodInfo = new ApiMethodInfo();
-							apiMethodInfo.setDescription(apiOperation.desc());
-							apiMethodInfo.setOwner(apiOperation.owner());
-							apiMethodInfo.setMethod(apiOperation.method());
+							String name = prefix.concat(SEPARATOR).concat(apiOperation.value());
+							ApiMethodInfo methodInfo = new ApiMethodInfo();
+							methodInfo.setDesc(apiOperation.desc());
+							methodInfo.setOwner(apiOperation.owner());
+							methodInfo.setType(apiOperation.method());
+							methodInfo.setReturnInfo(genertorReturnInfo(method));
 							
-							Class<?> returnType = method.getReturnType();
-							if(Collection.class.isAssignableFrom(returnType)) {
-								apiMethodInfo.setReturnType(returnType);
-								Type genericType = ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[0];
-								Class<?> genericClazz = (Class<?>) genericType;
-								if(isAcceptReturnType(genericClazz)) {
-									apiMethodInfo.setGenericType(genericClazz);
-								} else {
-									
-								}
-							} else if(returnType.isArray()) {
-								apiMethodInfo.setReturnType(returnType);
-								Class<?> genericClazz = returnType.getComponentType();
-								if(isAcceptReturnType(genericClazz)) {
-									apiMethodInfo.setGenericType(genericClazz);
-								}  else {
-									
-								}
-							} else if (isAcceptReturnType(returnType)) {
-								apiMethodInfo.setReturnType(returnType);
-							} else {
-								
-							}
 							ApiInfo apiInfo = new ApiInfo();
-							apiInfo.setApiMethodInfo(apiMethodInfo);
+							apiInfo.setMethodInfo(methodInfo);
 							apiInfo.setClassName(className);
 							apiInfo.setProxy(proxy);
 							apiInfo.setMethod(method);
-							apiInfo.setApiName(name);
+							apiInfo.setName(name);
 							apiInfo.setPrefix(prefix);
 							Optional<MethodConfig> methodConfigOption = methodConfigList.stream().filter(methodConfig -> methodConfig.getName().equals(method.getName())).findFirst();
 							if(methodConfigOption.isPresent()) {
 								MethodConfig methodConfig = methodConfigOption.get();
-								apiInfo.setTimeOut(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
+								apiInfo.setTimeout(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
 							} else {
-								apiInfo.setTimeOut(retries > 0 ? (retries + 1) * timeOut : timeOut);
+								apiInfo.setTimeout(retries > 0 ? (retries + 1) * timeOut : timeOut);
 							}
-							Parameter[] parameterArray = method.getParameters();
-							if(parameterArray.length == 0) {
+							Parameter[] parameters = method.getParameters();
+							if(parameters.length == 0) {
 								dubboRegisterMap.put(name, apiInfo);
 							} else {
-								ApiParameterInfo[] apiParameterInfos = new ApiParameterInfo[parameterArray.length];
-								for(int i = 0,size = parameterArray.length; i < size; i++) {
-									ApiParameterInfo apiParameterInfo = new ApiParameterInfo();
-									Parameter parameter = parameterArray[i];
-									ApiParam apiParameter = parameter.getAnnotation(ApiParam.class);
-									if(Objects.nonNull(apiParameter)) {
-										Class<?> parameterType = parameter.getType();
-										String parameterName = apiParameter.name();
-										String defaultValue = apiParameter.defaultValue();
-										boolean isRequired = apiParameter.required();
-										String description = apiParameter.desc();
-										if(Collection.class.isAssignableFrom(parameterType)) {
-											Class<?> genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
-											apiParameterInfo.setGenericParameterType(genericParameterType);
-										}
-										if(parameterType.isArray()) {
-											Class<?> genericParameterType = parameterType.getComponentType();
-											apiParameterInfo.setGenericParameterType(genericParameterType);
-										}
-										apiParameterInfo.setType(parameterType);
-										apiParameterInfo.setName(parameterName);
-										apiParameterInfo.setDefaultValue(defaultValue);
-										apiParameterInfo.setRequired(isRequired);
-										apiParameterInfo.setDescription(description);
-										apiParameterInfos[i] = apiParameterInfo;
-									} else {
-										Class<?> parameterType = parameter.getType();
-										String parameterName = parameter.getName();
-										String defaultValue = "";
-										boolean isRequired = false;
-										
-										if(Collection.class.isAssignableFrom(parameterType)) {
-											Class<?> genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
-											apiParameterInfo.setGenericParameterType(genericParameterType);
-										}
-										if(parameterType.isArray()) {
-											Class<?> genericParameterType = parameterType.getComponentType();
-											apiParameterInfo.setGenericParameterType(genericParameterType);
-										}
-										
-										apiParameterInfo.setType(parameterType);
-										apiParameterInfo.setName(parameterName);
-										apiParameterInfo.setDefaultValue(defaultValue);
-										apiParameterInfo.setRequired(isRequired);
-										apiParameterInfos[i] = apiParameterInfo;
+								ApiParameterInfo[] parameterInfos = new ApiParameterInfo[parameters.length];
+								for(int i = 0,size = parameters.length; i < size; i++) {
+									ApiParameterInfo parameterInfo = new ApiParameterInfo();
+									Parameter parameter = parameters[i];
+									
+									String defaultValue = "";
+									boolean isRequired = false;
+									String description = "";
+									String parameterName = "";
+									Class<?> parameterType = parameter.getType();
+									Class<?> genericParameterType = null;
+									if(Collection.class.isAssignableFrom(parameterType)) {
+										genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
 									}
+									if(parameterType.isArray()) {
+										genericParameterType = parameterType.getComponentType();
+									}
+									ApiParam apiParam = parameter.getAnnotation(ApiParam.class);
+									if(apiParam != null) {
+										parameterName = apiParam.name();
+										defaultValue = apiParam.defaultValue();
+										isRequired = apiParam.required();
+										description = apiParam.desc();
+									} else {
+										parameterName = parameter.getName();
+										defaultValue = "";
+										isRequired = false;
+										description = parameter.getName();
+									}
+									parameterInfo.setClazz(parameterType);
+									parameterInfo.setType(lowerCase(parameterType));
+									if(genericParameterType != null) {
+										parameterInfo.setGenericClazz(genericParameterType);
+										parameterInfo.setGeneric(lowerCase(genericParameterType));
+									}
+									parameterInfo.setName(parameterName);
+									parameterInfo.setDefaultValue(defaultValue);
+									parameterInfo.setRequired(isRequired);
+									parameterInfo.setDesc(description);
+									parameterInfos[i] = parameterInfo;
 								}
-								apiInfo.setApiParameterInfos(apiParameterInfos);
+								apiInfo.setParameterInfos(parameterInfos);
 								dubboRegisterMap.put(name, apiInfo);
 							}
 						}
@@ -174,9 +154,174 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 	public static Map<String, ApiInfo> getRegisterMap() {
 		return registerMap;
 	}
+	
+	private String lowerCase(Class<?> clazz) {
+		return clazz.getSimpleName().toLowerCase();
+	}
+	
+	private ApiReturnInfo genertorReturnInfo(Method method) {
+		Class<?> clazz = method.getReturnType();
+		
+		if(!isAcceptReturnType(clazz)) {
+			throw new RuntimeException("can not accept return type:" + clazz.getName());
+		}
+		
+		if(Date.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.DATE_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(String.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.STRING_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(int.class.isAssignableFrom(clazz) || Integer.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.INT_INTEGER_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(double.class.isAssignableFrom(clazz) || Double.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.DOUBLE_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(long.class.isAssignableFrom(clazz) || Long.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.LONG_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(float.class.isAssignableFrom(clazz) || Float.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.FLOAT_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(boolean.class.isAssignableFrom(clazz) || Boolean.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.BOOLEAN_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			return returnInfo;
+		}
+		
+		if(Collection.class.isAssignableFrom(clazz)) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.COLLECTION_DESC);
+			returnInfo.setType(lowerCase(clazz));
+			Type genericType = ((ParameterizedType) method.getGenericReturnType()).getActualTypeArguments()[0];
+			Class<?> genericClazz = (Class<?>) genericType;
+			returnInfo.setGeneric(lowerCase(genericClazz));
+			if(genericClazz.getAnnotation(ApiModel.class) != null) {
+				Set<ApiReturnInfo> childReturnInfos = new HashSet<>(1);
+				childReturnInfos.add(genertorReturnInfo(genericClazz));
+				returnInfo.setChildReturns(childReturnInfos);
+			}
+			return returnInfo;
+		}
+		
+		if(clazz.isArray()) {
+			ApiReturnInfo returnInfo = new ApiReturnInfo();
+			returnInfo.setDesc(DescriptionUtils.ARRAY_DESC);
+			returnInfo.setType(lowerCase(Array.class));
+			Class<?> genericClazz = clazz.getComponentType();
+			returnInfo.setGeneric(lowerCase(genericClazz));
+			if(genericClazz.getAnnotation(ApiModel.class) != null) {
+				Set<ApiReturnInfo> childReturnInfos = new HashSet<>(1);
+				childReturnInfos.add(genertorReturnInfo(genericClazz));
+				returnInfo.setChildReturns(childReturnInfos);
+			}
+			return returnInfo;
+		}
+		
+		if(clazz.getAnnotation(ApiModel.class) != null) {
+			genertorReturnInfo(clazz);
+		} 
+		return null;
+	}
+
+	private ApiReturnInfo genertorReturnInfo(Class<?> clazz) {
+		ApiModel apiModel = clazz.getAnnotation(ApiModel.class);
+		ApiReturnInfo returnInfo = new ApiReturnInfo();
+		returnInfo.setDesc(apiModel.value());
+		returnInfo.setType(lowerCase(clazz));
+		Set<ApiReturnInfo> childReturnInfos = new HashSet<>();
+		Field[] fields = clazz.getDeclaredFields();
+		Set<ApiReturnFieldInfo> apiReturnFieldInfoList = Arrays.stream(fields)
+				.filter(field -> field.getAnnotation(ApiModelProperty.class) != null)
+				.map(field -> {
+				field.setAccessible(true);
+				ApiModelProperty property = field.getAnnotation(ApiModelProperty.class);
+				Class<?> fieldType = field.getType();
+				if(Date.class.isAssignableFrom(fieldType) || String.class.isAssignableFrom(fieldType) || ClassUtils.isPrimitiveOrWrapper(fieldType)) {
+					ApiReturnFieldInfo fieldInfo = new ApiReturnFieldInfo();
+					fieldInfo.setDesc(property.value());
+					fieldInfo.setType(lowerCase(fieldType));
+					field.setAccessible(false);
+					return fieldInfo;
+				} else if(fieldType.getAnnotation(ApiModel.class) != null) {
+					ApiReturnFieldInfo fieldInfo = new ApiReturnFieldInfo();
+					fieldInfo.setDesc(property.value());
+					fieldInfo.setType(lowerCase(fieldType));
+					childReturnInfos.add(genertorReturnInfo(fieldType));
+					field.setAccessible(false);
+					return fieldInfo;
+				} else if(Collection.class.isAssignableFrom(fieldType)) {
+					ApiReturnFieldInfo fieldInfo = new ApiReturnFieldInfo();
+					fieldInfo.setDesc(property.value());
+					fieldInfo.setType(lowerCase(fieldType));
+					Type genericType = ((ParameterizedType) field.getGenericType()).getActualTypeArguments()[0];
+					Class<?> genericClazz = (Class<?>) genericType;
+					fieldInfo.setGeneric(lowerCase(genericClazz));
+					if(genericClazz.getAnnotation(ApiModel.class) != null) {
+						childReturnInfos.add(genertorReturnInfo(genericClazz));
+					}
+					field.setAccessible(false);
+					return fieldInfo;
+				} else if(fieldType.isArray()) {
+					ApiReturnFieldInfo fieldInfo = new ApiReturnFieldInfo();
+					fieldInfo.setDesc(property.value());
+					fieldInfo.setType(lowerCase(Array.class));
+					Class<?> genericClazz = fieldType.getComponentType();
+					fieldInfo.setGeneric(lowerCase(genericClazz));
+					if(genericClazz.getAnnotation(ApiModel.class) != null) {
+						childReturnInfos.add(genertorReturnInfo(genericClazz));
+					}
+					field.setAccessible(false);
+					return fieldInfo;
+				} else {
+					ApiReturnFieldInfo fieldInfo = new ApiReturnFieldInfo();
+					fieldInfo.setDesc(property.value());
+					fieldInfo.setType(lowerCase(fieldType));
+					field.setAccessible(false);
+					return fieldInfo;
+					
+				}
+		}).collect(Collectors.toSet());
+		returnInfo.setFields(apiReturnFieldInfoList);
+		if(childReturnInfos.size() > 0) {
+			returnInfo.setChildReturns(childReturnInfos);
+		}
+		return returnInfo;
+	}
 
 	private boolean isAcceptReturnType(Class<?> clazz) {
-		return Date.class.isAssignableFrom(clazz) || String.class.isAssignableFrom(clazz) || Objects.nonNull(clazz.getAnnotation(ApiModel.class)) || ClassUtils.isPrimitiveOrWrapper(clazz);
+		return  Date.class.isAssignableFrom(clazz) || 
+				String.class.isAssignableFrom(clazz) || 
+				clazz.getAnnotation(ApiModel.class) != null || 
+				ClassUtils.isPrimitiveOrWrapper(clazz) ||
+				Collection.class.isAssignableFrom(clazz) || 
+				clazz.isArray();
 	}
 	
 }

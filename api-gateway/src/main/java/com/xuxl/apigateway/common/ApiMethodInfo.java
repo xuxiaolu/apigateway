@@ -2,45 +2,24 @@ package com.xuxl.apigateway.common;
 
 import java.io.Serializable;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 public class ApiMethodInfo implements Serializable {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	
-	@JsonIgnore
-	private Class<?> returnType;
-	
-	/**
-	 * 如果returnType是数组或者集合，该属性为泛型类型
-	 */
-	private Class<?> genericType;
-	
-	private String description;
+	private String desc;
 	
 	private String owner;
 	
-	private String method;
+	private String type;
 	
-	private String json;
-	
-	public Class<?> getReturnType() {
-		return returnType;
+	private ApiReturnInfo returnInfo;
+
+	public String getDesc() {
+		return desc;
 	}
 
-	public void setReturnType(Class<?> returnType) {
-		this.returnType = returnType;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
+	public void setDesc(String desc) {
+		this.desc = desc;
 	}
 
 	public String getOwner() {
@@ -51,29 +30,20 @@ public class ApiMethodInfo implements Serializable {
 		this.owner = owner;
 	}
 
-	public Class<?> getGenericType() {
-		return genericType;
+	public ApiReturnInfo getReturnInfo() {
+		return returnInfo;
 	}
 
-	public void setGenericType(Class<?> genericType) {
-		this.genericType = genericType;
+	public void setReturnInfo(ApiReturnInfo returnInfo) {
+		this.returnInfo = returnInfo;
 	}
 
-	public String getJson() {
-		return json;
+	public String getType() {
+		return type;
 	}
 
-	public void setJson(String json) {
-		this.json = json;
+	public void setType(String type) {
+		this.type = type;
 	}
-
-	public String getMethod() {
-		return method;
-	}
-
-	public void setMethod(String method) {
-		this.method = method;
-	}
-	
 
 }
