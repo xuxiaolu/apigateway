@@ -9,8 +9,9 @@ import org.springframework.context.annotation.Import;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@Import(DubboAnnotationBeanRegister.class)
-public @interface EnableDubboAnnotationBean {
+@Import(DubboConsumerBeanRegister.class)
+public @interface EnableDubboConsumerBean {
 	
-	String[] packages();
+	String[] basePackages();
+	
 }

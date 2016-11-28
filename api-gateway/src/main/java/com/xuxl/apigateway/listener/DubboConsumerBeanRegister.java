@@ -6,12 +6,12 @@ import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
 import org.springframework.core.annotation.AnnotationAttributes;
 import org.springframework.core.type.AnnotationMetadata;
 
-public class DubboAnnotationBeanRegister implements ImportBeanDefinitionRegistrar {
+public class DubboConsumerBeanRegister implements ImportBeanDefinitionRegistrar {
 
 	public void registerBeanDefinitions(AnnotationMetadata annotationMetadata, BeanDefinitionRegistry registry) {
-        AnnotationAttributes attributes = AnnotationAttributes.fromMap(annotationMetadata.getAnnotationAttributes(EnableDubboAnnotationBean.class.getName()));
-        String[] packages = attributes.getStringArray("packages");
-        BeanDefinitionBuilder dubboAnnotationBean = BeanDefinitionBuilder.genericBeanDefinition(DubboAnnotationBean.class);
+        AnnotationAttributes attributes = AnnotationAttributes.fromMap(annotationMetadata.getAnnotationAttributes(EnableDubboConsumerBean.class.getName()));
+        String[] packages = attributes.getStringArray("basePackages");
+        BeanDefinitionBuilder dubboAnnotationBean = BeanDefinitionBuilder.genericBeanDefinition(DubboConsumerBean.class);
         dubboAnnotationBean.addConstructorArgValue(packages);
         registry.registerBeanDefinition("dubboAnnotationBean", dubboAnnotationBean.getRawBeanDefinition());
 	}

@@ -9,13 +9,11 @@ import java.lang.reflect.Type;
 import java.sql.Date;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -28,7 +26,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 
 import com.alibaba.dubbo.config.MethodConfig;
-import com.alibaba.dubbo.config.ReferenceConfig;
+import com.alibaba.dubbo.config.spring.ReferenceBean;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiMethodInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
@@ -47,26 +45,24 @@ import com.xuxl.common.annotation.http.api.ApiParam;
  *
  */
 @Component
-public class ApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
+public class RestApiParseListener implements ApplicationListener<ContextRefreshedEvent> {
 	
 	public static final String SEPARATOR = "/";
 	
 	private AtomicBoolean flag = new AtomicBoolean(false);
 	
-	private static Map<String,ApiInfo> registerMap;
-
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private static final ConcurrentHashMap<String,ApiInfo> registerMap = new ConcurrentHashMap<>();
+	
 	public void onApplicationEvent(ContextRefreshedEvent event) {
 		if(flag.compareAndSet(false, true)) {
 			ApplicationContext context = event.getApplicationContext();
-			Map<String, ReferenceConfig> configMap = context.getBeansOfType(ReferenceConfig.class);
-			Map<String,ApiInfo> dubboRegisterMap = new HashMap<>();
-			configMap.forEach((className,referenceBean) -> {
+			ConcurrentHashMap<String, ReferenceBean<?>> referenceBeanMap = DubboConsumerRegisterScanner.getReferencemap();
+			referenceBeanMap.forEach((className,referenceBean) -> {
 				Class<?> clazz = referenceBean.getInterfaceClass();
 				Api api = AnnotationUtils.findAnnotation(clazz, Api.class);
 				if(api != null) {
 					String prefix = api.value();
-					Object proxy = referenceBean.get();
+					Object proxy = context.getBean(className);
 					List<MethodConfig> methodConfigList = referenceBean.getMethods();
 					int timeOut = referenceBean.getTimeout();
 					int retries = referenceBean.getRetries();
@@ -75,83 +71,85 @@ public class ApiParseListener implements ApplicationListener<ContextRefreshedEve
 						ApiOperation apiOperation = AnnotationUtils.findAnnotation(method, ApiOperation.class);
 						if(apiOperation != null) {
 							String name = prefix.concat(SEPARATOR).concat(apiOperation.value());
-							ApiMethodInfo methodInfo = new ApiMethodInfo();
-							methodInfo.setDesc(apiOperation.desc());
-							methodInfo.setOwner(apiOperation.owner());
-							methodInfo.setType(apiOperation.method());
-							methodInfo.setReturnInfo(genertorReturnInfo(method));
-							
-							ApiInfo apiInfo = new ApiInfo();
-							apiInfo.setMethodInfo(methodInfo);
-							apiInfo.setClassName(className);
-							apiInfo.setProxy(proxy);
-							apiInfo.setMethod(method);
-							apiInfo.setName(name);
-							apiInfo.setPrefix(prefix);
-							Optional<MethodConfig> methodConfigOption = methodConfigList.stream().filter(methodConfig -> methodConfig.getName().equals(method.getName())).findFirst();
-							if(methodConfigOption.isPresent()) {
-								MethodConfig methodConfig = methodConfigOption.get();
-								apiInfo.setTimeout(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
-							} else {
-								apiInfo.setTimeout(retries > 0 ? (retries + 1) * timeOut : timeOut);
-							}
-							Parameter[] parameters = method.getParameters();
-							if(parameters.length == 0) {
-								dubboRegisterMap.put(name, apiInfo);
-							} else {
-								ApiParameterInfo[] parameterInfos = new ApiParameterInfo[parameters.length];
-								for(int i = 0,size = parameters.length; i < size; i++) {
-									ApiParameterInfo parameterInfo = new ApiParameterInfo();
-									Parameter parameter = parameters[i];
-									
-									String defaultValue = "";
-									boolean isRequired = false;
-									String description = "";
-									String parameterName = "";
-									Class<?> parameterType = parameter.getType();
-									Class<?> genericParameterType = null;
-									if(Collection.class.isAssignableFrom(parameterType)) {
-										genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
-									}
-									if(parameterType.isArray()) {
-										genericParameterType = parameterType.getComponentType();
-									}
-									ApiParam apiParam = parameter.getAnnotation(ApiParam.class);
-									if(apiParam != null) {
-										parameterName = apiParam.name();
-										defaultValue = apiParam.defaultValue();
-										isRequired = apiParam.required();
-										description = apiParam.desc();
-									} else {
-										parameterName = parameter.getName();
-										defaultValue = "";
-										isRequired = false;
-										description = parameter.getName();
-									}
-									parameterInfo.setClazz(parameterType);
-									parameterInfo.setType(lowerCase(parameterType));
-									if(genericParameterType != null) {
-										parameterInfo.setGenericClazz(genericParameterType);
-										parameterInfo.setGeneric(lowerCase(genericParameterType));
-									}
-									parameterInfo.setName(parameterName);
-									parameterInfo.setDefaultValue(defaultValue);
-									parameterInfo.setRequired(isRequired);
-									parameterInfo.setDesc(description);
-									parameterInfos[i] = parameterInfo;
+							ApiInfo apiInfo = registerMap.get(name);
+							if(apiInfo == null) {
+								ApiMethodInfo methodInfo = new ApiMethodInfo();
+								methodInfo.setDesc(apiOperation.desc());
+								methodInfo.setOwner(apiOperation.owner());
+								methodInfo.setType(apiOperation.method());
+								methodInfo.setReturnInfo(genertorReturnInfo(method));
+								
+								apiInfo = new ApiInfo();
+								apiInfo.setMethodInfo(methodInfo);
+								apiInfo.setClassName(className);
+								apiInfo.setProxy(proxy);
+								apiInfo.setMethod(method);
+								apiInfo.setName(name);
+								apiInfo.setPrefix(prefix);
+								Optional<MethodConfig> methodConfigOption = methodConfigList.stream().filter(methodConfig -> methodConfig.getName().equals(method.getName())).findFirst();
+								if(methodConfigOption.isPresent()) {
+									MethodConfig methodConfig = methodConfigOption.get();
+									apiInfo.setTimeout(methodConfig.getRetries() > 0 ? (methodConfig.getRetries() + 1) * methodConfig.getTimeout() : methodConfig.getTimeout());
+								} else {
+									apiInfo.setTimeout(retries > 0 ? (retries + 1) * timeOut : timeOut);
 								}
-								apiInfo.setParameterInfos(parameterInfos);
-								dubboRegisterMap.put(name, apiInfo);
+								Parameter[] parameters = method.getParameters();
+								if(parameters.length == 0) {
+									registerMap.putIfAbsent(name, apiInfo);
+								} else {
+									ApiParameterInfo[] parameterInfos = new ApiParameterInfo[parameters.length];
+									for(int i = 0,size = parameters.length; i < size; i++) {
+										ApiParameterInfo parameterInfo = new ApiParameterInfo();
+										Parameter parameter = parameters[i];
+										
+										String defaultValue = "";
+										boolean isRequired = false;
+										String description = "";
+										String parameterName = "";
+										Class<?> parameterType = parameter.getType();
+										Class<?> genericParameterType = null;
+										if(Collection.class.isAssignableFrom(parameterType)) {
+											genericParameterType = (Class<?>)((ParameterizedType)parameter.getParameterizedType()).getActualTypeArguments()[0];
+										}
+										if(parameterType.isArray()) {
+											genericParameterType = parameterType.getComponentType();
+										}
+										ApiParam apiParam = parameter.getAnnotation(ApiParam.class);
+										if(apiParam != null) {
+											parameterName = apiParam.name();
+											defaultValue = apiParam.defaultValue();
+											isRequired = apiParam.required();
+											description = apiParam.desc();
+										} else {
+											parameterName = parameter.getName();
+											defaultValue = "";
+											isRequired = false;
+											description = parameter.getName();
+										}
+										parameterInfo.setClazz(parameterType);
+										parameterInfo.setType(lowerCase(parameterType));
+										if(genericParameterType != null) {
+											parameterInfo.setGenericClazz(genericParameterType);
+											parameterInfo.setGeneric(lowerCase(genericParameterType));
+										}
+										parameterInfo.setName(parameterName);
+										parameterInfo.setDefaultValue(defaultValue);
+										parameterInfo.setRequired(isRequired);
+										parameterInfo.setDesc(description);
+										parameterInfos[i] = parameterInfo;
+									}
+									apiInfo.setParameterInfos(parameterInfos);
+									registerMap.putIfAbsent(name, apiInfo);
+								}
 							}
 						}
 					});
 				}
 			});
-			registerMap = Collections.unmodifiableMap(dubboRegisterMap);
 		}
 	}
 	
-	public static Map<String, ApiInfo> getRegisterMap() {
+	public static ConcurrentHashMap<String, ApiInfo> getRegisterMap() {
 		return registerMap;
 	}
 	

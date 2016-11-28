@@ -36,7 +36,7 @@ import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
 import com.xuxl.apigateway.common.BaseResponse;
 import com.xuxl.apigateway.converter.StringToDateConverter;
-import com.xuxl.apigateway.listener.ApiParseListener;
+import com.xuxl.apigateway.listener.RestApiParseListener;
 import com.xuxl.common.exception.ServiceException;
 import com.xuxl.common.utils.JsonUtil;
 
@@ -50,8 +50,8 @@ public class MultiController {
 	public WebAsyncTask<BaseResponse> multi(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
 		logger.info(String.format("ClientIp: %s,Url:%s",getClientIp(request),getRequestInfo(request)));
 		String requestMethod = request.getMethod();
-		String mt = prefix + ApiParseListener.SEPARATOR + suffix;
-		ApiInfo apiInfo = ApiParseListener.getRegisterMap().get(mt);
+		String mt = prefix + RestApiParseListener.SEPARATOR + suffix;
+		ApiInfo apiInfo = RestApiParseListener.getRegisterMap().get(mt);
 		if (apiInfo == null) {
 			logger.error(String.format("%s is error", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);

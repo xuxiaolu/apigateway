@@ -7,10 +7,10 @@ import org.springframework.boot.context.web.SpringBootServletInitializer;
 
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
-import com.xuxl.apigateway.listener.EnableDubboAnnotationBean;
+import com.xuxl.apigateway.listener.EnableDubboConsumerBean;
 
 @SpringBootApplication
-@EnableDubboAnnotationBean(packages = "com.xuxl")
+@EnableDubboConsumerBean(basePackages = "com.xuxl")
 public class ApiGatewayApplication extends SpringBootServletInitializer {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ApiGatewayApplication.class);

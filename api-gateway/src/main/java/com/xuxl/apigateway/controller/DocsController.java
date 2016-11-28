@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.DocResponse;
-import com.xuxl.apigateway.listener.ApiParseListener;
+import com.xuxl.apigateway.listener.RestApiParseListener;
 
 
 @RestController
@@ -23,7 +23,7 @@ public class DocsController {
 	public List<DocResponse> docs() {
 		List<DocResponse> responseList = new ArrayList<DocResponse>();
 		List<ApiInfo> apiDefineList = new LinkedList<>();
-		Map<String,ApiInfo> registerMap = ApiParseListener.getRegisterMap();
+		Map<String,ApiInfo> registerMap = RestApiParseListener.getRegisterMap();
 		registerMap.forEach((key,value) -> {
 			apiDefineList.add(value);
 		});

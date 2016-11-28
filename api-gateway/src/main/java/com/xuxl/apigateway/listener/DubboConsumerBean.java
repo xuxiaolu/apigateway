@@ -16,13 +16,13 @@ import com.xuxl.common.annotation.dubbo.api.DubboService;
  * @author xuxl
  *
  */
-public class DubboAnnotationBean implements BeanFactoryPostProcessor,ApplicationContextAware {
+public class DubboConsumerBean implements BeanFactoryPostProcessor,ApplicationContextAware {
 	
 	private ApplicationContext context;
 	
 	private String[] packages;
 	
-	public DubboAnnotationBean(String[] packages) {
+	public DubboConsumerBean(String[] packages) {
 		this.packages = packages;
 	}
 
@@ -31,7 +31,7 @@ public class DubboAnnotationBean implements BeanFactoryPostProcessor,Application
             return;
         }
         if (beanFactory instanceof BeanDefinitionRegistry) {
-        	DubboServiceRegisterScanner scanner = new DubboServiceRegisterScanner((BeanDefinitionRegistry)beanFactory,context);
+        	DubboConsumerRegisterScanner scanner = new DubboConsumerRegisterScanner((BeanDefinitionRegistry)beanFactory,context);
         	scanner.addIncludeFilter(new AnnotationTypeFilter(DubboService.class));
         	scanner.scan(packages);
         }
