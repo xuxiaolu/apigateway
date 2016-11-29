@@ -5,30 +5,19 @@ import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
-public class BaseResponse implements Serializable {
+public class BaseResponse<T> implements Serializable {
 	
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
-
 	
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",timezone = "GMT+8")
-	private Date now = new Date();
+	private Date date;
 	
-	private int code = 200;
+	private int code;
 	
-	private String message = "成功";
+	private String msg;
 	
-	private Object result;
+	private T result;
 
-	public Date getNow() {
-		return now;
-	}
-
-	public void setNow(Date now) {
-		this.now = now;
-	}
 
 	public int getCode() {
 		return code;
@@ -38,21 +27,30 @@ public class BaseResponse implements Serializable {
 		this.code = code;
 	}
 
-	public Object getResult() {
+	public Date getDate() {
+		return date;
+	}
+
+	public void setDate(Date date) {
+		this.date = date;
+	}
+
+	public String getMsg() {
+		return msg;
+	}
+
+	public void setMsg(String msg) {
+		this.msg = msg;
+	}
+
+	public T getResult() {
 		return result;
 	}
 
-	public void setResult(Object result) {
+	public void setResult(T result) {
 		this.result = result;
 	}
 
-	public String getMessage() {
-		return message;
-	}
-
-	public void setMessage(String message) {
-		this.message = message;
-	}
-
+	
 
 }

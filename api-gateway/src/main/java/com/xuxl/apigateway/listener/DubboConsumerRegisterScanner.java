@@ -20,10 +20,8 @@ import org.springframework.context.annotation.AnnotationBeanNameGenerator;
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.util.Assert;
 
-import com.alibaba.dubbo.config.ApplicationConfig;
 import com.alibaba.dubbo.config.MethodConfig;
 import com.alibaba.dubbo.config.ReferenceConfig;
-import com.alibaba.dubbo.config.RegistryConfig;
 import com.alibaba.dubbo.config.spring.ReferenceBean;
 import com.xuxl.common.annotation.dubbo.api.DubboMethod;
 import com.xuxl.common.annotation.dubbo.api.DubboService;
@@ -34,14 +32,6 @@ import com.xuxl.common.annotation.dubbo.api.DubboService;
  *
  */
 public class DubboConsumerRegisterScanner extends ClassPathBeanDefinitionScanner implements DisposableBean {
-	
-	private static final String DUBBO_APPLICATION_NAME = "spring.dubbo.name";
-	
-	private static final String DUBBO_REGISTER_ADDRESS = "spring.dubbo.address";
-	
-	private static final String DUBBO_SERVICE_CHECK = "spring.dubbo.check";
-	
-	private static final String SEPARATOR = ";";
 	
 	private ApplicationContext applicationContext;	
 	
@@ -56,8 +46,6 @@ public class DubboConsumerRegisterScanner extends ClassPathBeanDefinitionScanner
 		Assert.notNull(applicationContext, "applicationContext can not be null");
 		this.applicationContext = applicationContext;
 	}
-
-
 
 	protected boolean isCandidateComponent(AnnotatedBeanDefinition beanDefinition) {
 		return (beanDefinition.getMetadata().isInterface() && beanDefinition.getMetadata().isIndependent());
@@ -83,29 +71,15 @@ public class DubboConsumerRegisterScanner extends ClassPathBeanDefinitionScanner
 		}
 		if(beanDefinitions.size() != 0) {
 			ConfigurableApplicationContext context = (ConfigurableApplicationContext) applicationContext;
-			String applicationConfigBeanName = "applicationConfig";
-			ApplicationConfig applicationConfig = new ApplicationConfig(context.getEnvironment().getProperty(DUBBO_APPLICATION_NAME));
-			context.getBeanFactory().registerSingleton(applicationConfigBeanName, applicationConfig);
-			logger.info("register applicationConfig success");
-			
-			String registryConfigBeanName = "%s@registryConfig";
-			String addressSum = context.getEnvironment().getProperty(DUBBO_REGISTER_ADDRESS, String.class);
-			String[] addresses = addressSum.trim().split(SEPARATOR);
-			List<RegistryConfig> registryConfigs = Arrays.stream(addresses).map(address -> {
-				RegistryConfig registryConfig = new RegistryConfig(address.trim());
-				registryConfig.setProtocol("dubbo");
-				context.getBeanFactory().registerSingleton(String.format(registryConfigBeanName, address), registryConfig);
-				logger.info("register ".concat(String.format(registryConfigBeanName, address)).concat(" success"));
-				return registryConfig;
-			}).collect(Collectors.toList());
 			beanDefinitions.stream().forEach(holder -> {
 				GenericBeanDefinition definition = (GenericBeanDefinition) holder.getBeanDefinition();
 				String className = definition.getBeanClassName();
 				ReferenceBean<?> referenceBean = referenceMap.get(className);
 				if(referenceBean == null) {
 					try {
-						Class<?> clazz = Class.forName(className);
 						referenceBean = new ReferenceBean<>();
+						referenceBean.setApplicationContext(applicationContext);
+						Class<?> clazz = Class.forName(className);
 						referenceBean.setInterface(clazz);
 						Method[] methods = clazz.getDeclaredMethods();
 						List<MethodConfig> methodConfigList = Arrays.stream(methods).filter(method -> method.getAnnotation(DubboMethod.class) != null).map(method -> {
@@ -117,23 +91,27 @@ public class DubboConsumerRegisterScanner extends ClassPathBeanDefinitionScanner
 							return methodConfig;
 						}).collect(Collectors.toList());
 						referenceBean.setMethods(methodConfigList);
-						referenceBean.setApplication(applicationConfig);
-						referenceBean.setCheck(context.getEnvironment().getProperty(DUBBO_SERVICE_CHECK, Boolean.class));
+						referenceBean.setCheck(false);
 						DubboService service = clazz.getAnnotation(DubboService.class);
 						if(service != null) {
 							referenceBean.setVersion(service.version());
 							referenceBean.setTimeout(service.timeout());
 							referenceBean.setRetries(service.retries());
 						}
-						referenceBean.setRegistries(registryConfigs);
-						context.getBeanFactory().registerSingleton(className, referenceBean.get());
+						try {
+							referenceBean.afterPropertiesSet();
+		                } catch (RuntimeException e) {
+		                    throw (RuntimeException) e;
+		                } catch (Exception e) {
+		                    throw new IllegalStateException(e.getMessage(), e);
+		                }
 						referenceMap.putIfAbsent(className, referenceBean);
+						context.getBeanFactory().registerSingleton(className, referenceBean.get());
 						logger.info(String.format("register %s success", className));
 					} catch (ClassNotFoundException e) {
 						logger.error(String.format("register %s fail", className),e);
 					}
 				}
-				
 			});
 		}
 		return beanDefinitions;

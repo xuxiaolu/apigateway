@@ -4,15 +4,11 @@ import com.xuxl.common.code.AbstractReturnCode;
 
 public class SystemReturnCode extends AbstractReturnCode {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 
 	public SystemReturnCode(String desc, int code) {
 		super(desc, code);
 	}
-	
 	
 	public final static int CODE_DUBBO_SERVICE_NOTFOUND_ERROR = -100;
 	
@@ -57,4 +53,16 @@ public class SystemReturnCode extends AbstractReturnCode {
 	public final static int CODE_METHOD_PARAMETER_ERROR = -200;
 	
 	public final static SystemReturnCode METHOD_PARAMETER_ERROR = new SystemReturnCode("参数不合法", CODE_METHOD_PARAMETER_ERROR);
+	
+	public final static int CODE_SUCCESS = 200;
+	
+	public final static SystemReturnCode SUCCESS = new SystemReturnCode("请求成功", CODE_SUCCESS);
+	
+	public final static int CODE_NOT_FOUND_ERROR = 404;
+	
+	public final static SystemReturnCode NOT_FOUND_ERROR = new SystemReturnCode("资源不存在", CODE_NOT_FOUND_ERROR);
+	
+	public final static int CODE_INTERNAL_ERROR = 500;
+	
+	public final static SystemReturnCode INTERNAL_ERROR = new SystemReturnCode("内部错误",  CODE_INTERNAL_ERROR);
 }

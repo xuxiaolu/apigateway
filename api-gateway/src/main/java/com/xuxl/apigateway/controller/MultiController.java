@@ -3,9 +3,9 @@ package com.xuxl.apigateway.controller;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.sql.Date;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
@@ -47,7 +47,7 @@ public class MultiController {
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
 	@RequestMapping("/{prefix}/{suffix}")
-	public WebAsyncTask<BaseResponse> multi(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
+	public WebAsyncTask<BaseResponse<Object>> multi(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
 		logger.info(String.format("ClientIp: %s,Url:%s",getClientIp(request),getRequestInfo(request)));
 		String requestMethod = request.getMethod();
 		String mt = prefix + RestApiParseListener.SEPARATOR + suffix;
@@ -74,11 +74,14 @@ public class MultiController {
 		int timeout = apiInfo.getTimeout();
 		ApiParameterInfo[] apiParameterInfos = apiInfo.getParameterInfos();
 		Object[] paramaters = parseParamater(apiParameterInfos, request);
-		Callable<BaseResponse> callResponse = () -> {
+		Callable<BaseResponse<Object>> callResponse = () -> {
 			long start = System.currentTimeMillis();
 			try {
 				Object result = method.invoke(proxy, paramaters);
-				BaseResponse response = new BaseResponse();
+				BaseResponse<Object> response = new BaseResponse<>();
+				response.setCode(SystemReturnCode.SUCCESS.getCode());
+				response.setMsg(SystemReturnCode.SUCCESS.getDesc());
+				response.setDate(new Date());
 				response.setResult(result);
 				return response;
 			} catch (IllegalAccessException e) {
@@ -121,7 +124,7 @@ public class MultiController {
 			}
 			return null;
 		};
-		return new WebAsyncTask<BaseResponse>(timeout, callResponse);
+		return new WebAsyncTask<BaseResponse<Object>>(timeout, callResponse);
 	}
 
 	private String getRequestInfo(HttpServletRequest request) {
