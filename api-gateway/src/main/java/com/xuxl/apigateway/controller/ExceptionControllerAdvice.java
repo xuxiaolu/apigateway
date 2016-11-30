@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
+import com.netflix.hystrix.exception.HystrixTimeoutException;
 import com.xuxl.apigateway.code.SystemReturnCode;
 import com.xuxl.apigateway.common.BaseResponse;
 import com.xuxl.common.exception.ServiceException;
@@ -20,14 +21,13 @@ public class ExceptionControllerAdvice {
 	
 	@ExceptionHandler(Exception.class)
 	@ResponseBody
-	public BaseResponse<Object> processException(Exception exception) {
-		logger.error(exception);
+	public BaseResponse<Object> processException(Throwable throwable) {
+		logger.error(throwable);
 		BaseResponse<Object> response = new BaseResponse<>();
 		response.setDate(new Date());
-		if(exception instanceof ServiceException) {
-			ServiceException serviceException = (ServiceException) exception;
-			response.setCode(serviceException.getCode());
-			response.setMsg(serviceException.getMsg());
+		if(HystrixTimeoutException.class.isInstance(throwable)) {
+			response.setCode(SystemReturnCode.TIMEOUT_ERROR.getCode());
+			response.setMsg(SystemReturnCode.TIMEOUT_ERROR.getMsg());
 		} else {
 			ServiceException serviceException = new ServiceException(SystemReturnCode.UNKNOWN_ERROR);
 			response.setCode(serviceException.getCode());

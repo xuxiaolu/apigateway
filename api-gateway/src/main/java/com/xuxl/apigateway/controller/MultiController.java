@@ -1,6 +1,5 @@
 package com.xuxl.apigateway.controller;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -9,7 +8,6 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.StringJoiner;
-import java.util.concurrent.Callable;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -26,16 +24,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.async.WebAsyncTask;
 
 import com.alibaba.dubbo.common.logger.Logger;
 import com.alibaba.dubbo.common.logger.LoggerFactory;
-import com.alibaba.dubbo.rpc.RpcException;
 import com.xuxl.apigateway.code.SystemReturnCode;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
 import com.xuxl.apigateway.common.BaseResponse;
 import com.xuxl.apigateway.converter.StringToDateConverter;
+import com.xuxl.apigateway.hystrix.DubboHyStrixCommand;
 import com.xuxl.apigateway.listener.RestApiParseListener;
 import com.xuxl.common.exception.ServiceException;
 import com.xuxl.common.utils.JsonUtil;
@@ -47,8 +44,9 @@ public class MultiController {
 	private final static Logger logger = LoggerFactory.getLogger(MultiController.class);
 
 	@RequestMapping("/{prefix}/{suffix}")
-	public WebAsyncTask<BaseResponse<Object>> multi(HttpServletRequest request, @PathVariable String prefix,@PathVariable String suffix) throws ServiceException {
-		logger.info(String.format("ClientIp: %s,Url:%s",getClientIp(request),getRequestInfo(request)));
+	public BaseResponse<Object> multi(HttpServletRequest request, @PathVariable String prefix,
+			@PathVariable String suffix) throws Exception {
+		logger.info(String.format("ClientIp: %s,Url:%s", getClientIp(request), getRequestInfo(request)));
 		String requestMethod = request.getMethod();
 		String mt = prefix + RestApiParseListener.SEPARATOR + suffix;
 		ApiInfo apiInfo = RestApiParseListener.getRegisterMap().get(mt);
@@ -62,76 +60,27 @@ public class MultiController {
 			throw new ServiceException(SystemReturnCode.REQUEST_METHOD_ERROR);
 		}
 		Object proxy = apiInfo.getProxy();
-		if (Objects.isNull(proxy)) {
+		if (proxy != null) {
 			logger.error(String.format("%s参数没有对应的处理器", mt));
 			throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
 		}
 		Method method = apiInfo.getMethod();
-		if (Objects.isNull(method)) {
+		if (method != null) {
 			logger.error(String.format("%s参数没有对应的处理方法", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
 		int timeout = apiInfo.getTimeout();
 		ApiParameterInfo[] apiParameterInfos = apiInfo.getParameterInfos();
-		Object[] paramaters = parseParamater(apiParameterInfos, request);
-		Callable<BaseResponse<Object>> callResponse = () -> {
-			long start = System.currentTimeMillis();
-			try {
-				Object result = method.invoke(proxy, paramaters);
-				BaseResponse<Object> response = new BaseResponse<>();
-				response.setCode(SystemReturnCode.SUCCESS.getCode());
-				response.setMsg(SystemReturnCode.SUCCESS.getDesc());
-				response.setDate(new Date());
-				response.setResult(result);
-				return response;
-			} catch (IllegalAccessException e) {
-				logger.error("安全异常", e);
-				throw new ServiceException(SystemReturnCode.SECURITY_ERROR);
-			} catch (IllegalArgumentException e) {
-				logger.error("参数错误", e);
-				throw new ServiceException(SystemReturnCode.PARAMETER_ERROR);
-			} catch (InvocationTargetException e) {
-				Throwable exception = e.getTargetException();
-				if (exception instanceof ServiceException) {
-					logger.error(e.getTargetException());
-					throw (ServiceException) e.getTargetException();
-				} else if (exception instanceof RpcException) {
-					RpcException rpcException = (RpcException) e.getTargetException();
-					int code = rpcException.getCode();
-					if (code == RpcException.UNKNOWN_EXCEPTION) {
-						logger.error("dubbo服务找不到", rpcException);
-						throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
-					} else if (code == RpcException.FORBIDDEN_EXCEPTION) {
-						logger.error("禁止访问目标接口", rpcException);
-						throw new ServiceException(SystemReturnCode.FORBIDDED_ERROR);
-					} else if (code == RpcException.NETWORK_EXCEPTION) {
-						logger.error("网络错误", rpcException);
-						throw new ServiceException(SystemReturnCode.NETWORK_ERROR);
-					} else if (code == RpcException.SERIALIZATION_EXCEPTION) {
-						logger.error("序列化错误", rpcException);
-						throw new ServiceException(SystemReturnCode.SERIALIZATION_ERROR);
-					} else if (code == RpcException.TIMEOUT_EXCEPTION) {
-						logger.error("访问目标接口超时", rpcException);
-						throw new ServiceException(SystemReturnCode.TIMEOUT_ERROR);
-					}
-				} else {
-					logger.error("未知错误", exception);
-					throw new ServiceException(SystemReturnCode.UNKNOWN_ERROR);
-				}
-			} finally {
-				long end = System.currentTimeMillis() - start;
-				logger.info(String.format("invoke %s.%s method, take %s ms", apiInfo.getClassName(), method.getName(),end));
-			}
-			return null;
-		};
-		return new WebAsyncTask<BaseResponse<Object>>(timeout, callResponse);
+		Object[] args = parseParamater(apiParameterInfos, request);
+		BaseResponse<Object> response = new DubboHyStrixCommand(proxy, method, args, timeout).execute();
+		return response;
 	}
 
 	private String getRequestInfo(HttpServletRequest request) {
 		StringBuilder builder = new StringBuilder(request.getRequestURI());
 		StringJoiner jStringJoiner = new StringJoiner("&");
-		Map<String,String[]> map = request.getParameterMap();
-		map.forEach((key,value) -> {
+		Map<String, String[]> map = request.getParameterMap();
+		map.forEach((key, value) -> {
 			StringBuilder sb = new StringBuilder(key);
 			sb.append("=");
 			StringJoiner joiner = new StringJoiner(",");
@@ -139,13 +88,13 @@ public class MultiController {
 			sb.append(joiner.toString());
 			jStringJoiner.add(sb);
 		});
-		if(jStringJoiner.toString().length() > 0) {
+		if (jStringJoiner.toString().length() > 0) {
 			builder.append("?");
 			builder.append(jStringJoiner.toString());
 		}
 		return builder.toString();
 	}
-	
+
 	private String getClientIp(HttpServletRequest request) {
 		String ip = request.getHeader("X-Forwarded-For");
 		if (StringUtils.hasText(ip) && !"unKnown".equalsIgnoreCase(ip)) {
@@ -163,8 +112,7 @@ public class MultiController {
 		return request.getRemoteAddr();
 	}
 
-	private Object[] parseParamater(ApiParameterInfo[] parameters, HttpServletRequest request)
-			throws ServiceException {
+	private Object[] parseParamater(ApiParameterInfo[] parameters, HttpServletRequest request) throws ServiceException {
 		if (parameters == null) {
 			return null;
 		} else {

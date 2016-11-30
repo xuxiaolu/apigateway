@@ -12,14 +12,14 @@ import com.xuxl.apigateway.listener.EnableDubboConsumerBean;
 @SpringBootApplication
 @EnableDubboConsumerBean(basePackages = "com.xuxl")
 public class ApiGatewayApplication extends SpringBootServletInitializer {
-	
+
 	private static final Logger logger = LoggerFactory.getLogger(ApiGatewayApplication.class);
-	
+
 	@Override
 	protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
 		return builder.sources(ApiGatewayApplication.class);
 	}
-	
+
 	public static void main(String[] args) {
 		SpringApplication.run(ApiGatewayApplication.class, args);
 		logger.info("api-gateway has started");

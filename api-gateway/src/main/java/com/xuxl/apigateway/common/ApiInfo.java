@@ -33,7 +33,6 @@ public class ApiInfo implements Serializable {
 	
 	private ApiParameterInfo[] parameterInfos;
 	
-	
 	public String getPrefix() {
 		return prefix;
 	}

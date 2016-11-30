@@ -33,7 +33,18 @@
 			<groupId>com.xuxl</groupId>
 			<artifactId>user-service-api</artifactId>
 			<version>1.0.0</version>
-		</dependency>
+		</dependency>     
+		 <!-- hystrix -->   
+         <dependency>
+             <groupId>com.netflix.hystrix</groupId>
+             <artifactId>hystrix-core</artifactId>
+             <version>1.5.2</version>
+         </dependency>
+         <dependency>
+            <groupId>com.netflix.hystrix</groupId>
+            <artifactId>hystrix-metrics-event-stream</artifactId>
+            <version>1.4.23</version>
+        </dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>

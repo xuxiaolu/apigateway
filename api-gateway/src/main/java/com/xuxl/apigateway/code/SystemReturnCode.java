@@ -10,13 +10,9 @@ public class SystemReturnCode extends AbstractReturnCode {
 		super(desc, code);
 	}
 	
-	public final static int CODE_DUBBO_SERVICE_NOTFOUND_ERROR = -100;
+	public final static int CODE_DUBBO_SERVICE_NOTFOUND_ERROR = -110;
 	
 	public final static SystemReturnCode DUBBO_SERVICE_NOTFOUND_ERROR = new SystemReturnCode("dubbo服务找不到", CODE_DUBBO_SERVICE_NOTFOUND_ERROR);
-	
-	public final static int CODE_SECURITY_ERROR = -110;
-	
-	public final static SystemReturnCode SECURITY_ERROR = new SystemReturnCode("安全异常", CODE_SECURITY_ERROR);
 	
 	public final static int CODE_UNKNOWN_METHOD_ERROR = -120;
 	

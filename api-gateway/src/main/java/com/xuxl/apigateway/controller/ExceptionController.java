@@ -21,7 +21,7 @@ public class ExceptionController implements ErrorController {
     public BaseResponse<Object> error404(HttpServletRequest request) {
 		BaseResponse<Object> response = new BaseResponse<>();
 		response.setCode(SystemReturnCode.NOT_FOUND_ERROR.getCode());
-		response.setMsg(SystemReturnCode.NOT_FOUND_ERROR.getDesc());
+		response.setMsg(SystemReturnCode.NOT_FOUND_ERROR.getMsg());
         return response;
     }
 
@@ -29,7 +29,7 @@ public class ExceptionController implements ErrorController {
 	public BaseResponse<Object> error500(HttpServletRequest request) {
 		BaseResponse<Object> response = new BaseResponse<>();
 		response.setCode(SystemReturnCode.INTERNAL_ERROR.getCode());
-		response.setMsg(SystemReturnCode.INTERNAL_ERROR.getDesc());
+		response.setMsg(SystemReturnCode.INTERNAL_ERROR.getMsg());
 		return response;
 	}
 
