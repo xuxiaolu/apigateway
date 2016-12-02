@@ -31,11 +31,14 @@ import com.xuxl.apigateway.code.SystemReturnCode;
 import com.xuxl.apigateway.common.ApiInfo;
 import com.xuxl.apigateway.common.ApiParameterInfo;
 import com.xuxl.apigateway.common.BaseResponse;
+import com.xuxl.apigateway.context.ApiContext;
+import com.xuxl.apigateway.context.ThreadContext;
 import com.xuxl.apigateway.converter.StringToDateConverter;
 import com.xuxl.apigateway.hystrix.DubboHyStrixCommand;
 import com.xuxl.apigateway.listener.RestApiParseListener;
 import com.xuxl.common.exception.ServiceException;
 import com.xuxl.common.utils.JsonUtil;
+import com.xuxl.common.utils.ParmaConstant;
 
 @RestController
 @RequestMapping(value = "/api", method = { RequestMethod.GET, RequestMethod.POST })
@@ -60,18 +63,19 @@ public class MultiController {
 			throw new ServiceException(SystemReturnCode.REQUEST_METHOD_ERROR);
 		}
 		Object proxy = apiInfo.getProxy();
-		if (proxy != null) {
+		if (proxy == null) {
 			logger.error(String.format("%s参数没有对应的处理器", mt));
 			throw new ServiceException(SystemReturnCode.DUBBO_SERVICE_NOTFOUND_ERROR);
 		}
 		Method method = apiInfo.getMethod();
-		if (method != null) {
+		if (method == null) {
 			logger.error(String.format("%s参数没有对应的处理方法", mt));
 			throw new ServiceException(SystemReturnCode.UNKNOWN_METHOD_ERROR);
 		}
 		int timeout = apiInfo.getTimeout();
 		ApiParameterInfo[] apiParameterInfos = apiInfo.getParameterInfos();
-		Object[] args = parseParamater(apiParameterInfos, request);
+		ApiContext context = ThreadContext.getContext();
+		Object[] args = parseParamater(apiParameterInfos, request,context);
 		BaseResponse<Object> response = new DubboHyStrixCommand(proxy, method, args, timeout).execute();
 		return response;
 	}
@@ -112,7 +116,7 @@ public class MultiController {
 		return request.getRemoteAddr();
 	}
 
-	private Object[] parseParamater(ApiParameterInfo[] parameters, HttpServletRequest request) throws ServiceException {
+	private Object[] parseParamater(ApiParameterInfo[] parameters, HttpServletRequest request,ApiContext context) throws ServiceException {
 		if (parameters == null) {
 			return null;
 		} else {
@@ -124,7 +128,9 @@ public class MultiController {
 				Class<?> clazz = apiParameterInfo.getClazz();
 				Class<?> genericClazz = apiParameterInfo.getGenericClazz();
 				// 对基本数据类型,包装类，list,日期需要在request中直接取，没有就抛异常
-				if (!isSimpleType(clazz)) {
+				if((clazz == long.class || clazz == Long.class) && name.equals(ParmaConstant.USRE_ID)) {
+					objects[i] = context.getUserId();
+				} else if (!isSimpleType(clazz)) {
 					// 不支持map
 					if (Map.class.isAssignableFrom(clazz)) {
 						logger.error("unsupport map type");

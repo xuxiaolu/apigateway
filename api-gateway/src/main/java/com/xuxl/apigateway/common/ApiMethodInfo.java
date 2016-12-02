@@ -2,6 +2,8 @@ package com.xuxl.apigateway.common;
 
 import java.io.Serializable;
 
+import com.xuxl.common.annotation.http.api.ApiOperation.SecurityType;
+
 public class ApiMethodInfo implements Serializable {
 
 	private static final long serialVersionUID = 1L;
@@ -13,6 +15,8 @@ public class ApiMethodInfo implements Serializable {
 	private String type;
 	
 	private ApiReturnInfo returnInfo;
+	
+	private SecurityType security;
 
 	public String getDesc() {
 		return desc;
@@ -44,6 +48,14 @@ public class ApiMethodInfo implements Serializable {
 
 	public void setType(String type) {
 		this.type = type;
+	}
+
+	public SecurityType getSecurity() {
+		return security;
+	}
+
+	public void setSecurity(SecurityType security) {
+		this.security = security;
 	}
 
 }

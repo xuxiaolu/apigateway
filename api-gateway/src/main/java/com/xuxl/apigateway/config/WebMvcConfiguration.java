@@ -30,18 +30,16 @@ public class WebMvcConfiguration extends WebMvcConfigurerAdapter {
 		converters.add(stringConverter);
 		converters.add(mapperConverter);
 	}
-	
-	
+
 	@Bean
-    public EmbeddedServletContainerCustomizer containerCustomizer(){
-        return new EmbeddedServletContainerCustomizer(){
-            public void customize(ConfigurableEmbeddedServletContainer container) {
-                container.addErrorPages(new ErrorPage(HttpStatus.NOT_FOUND, "/error/404"));
-                container.addErrorPages(new ErrorPage(HttpStatus.INTERNAL_SERVER_ERROR, "/error/500"));
-                container.addErrorPages(new ErrorPage(Throwable.class,"/error/500"));
-            }
-        };
-    }
-	
+	public EmbeddedServletContainerCustomizer containerCustomizer() {
+		return new EmbeddedServletContainerCustomizer() {
+			public void customize(ConfigurableEmbeddedServletContainer container) {
+				container.addErrorPages(new ErrorPage(HttpStatus.NOT_FOUND, "/error/404"));
+				container.addErrorPages(new ErrorPage(HttpStatus.INTERNAL_SERVER_ERROR, "/error/500"));
+				container.addErrorPages(new ErrorPage(Throwable.class, "/error/500"));
+			}
+		};
+	}
 
 }

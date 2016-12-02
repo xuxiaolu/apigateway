@@ -78,6 +78,7 @@ public class RestApiParseListener implements ApplicationListener<ContextRefreshe
 								methodInfo.setOwner(apiOperation.owner());
 								methodInfo.setType(apiOperation.method());
 								methodInfo.setReturnInfo(genertorReturnInfo(method));
+								methodInfo.setSecurity(apiOperation.security());
 								
 								apiInfo = new ApiInfo();
 								apiInfo.setMethodInfo(methodInfo);

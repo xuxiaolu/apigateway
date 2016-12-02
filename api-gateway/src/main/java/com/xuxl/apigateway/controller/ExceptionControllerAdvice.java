@@ -28,6 +28,10 @@ public class ExceptionControllerAdvice {
 		if(HystrixTimeoutException.class.isInstance(throwable)) {
 			response.setCode(SystemReturnCode.TIMEOUT_ERROR.getCode());
 			response.setMsg(SystemReturnCode.TIMEOUT_ERROR.getMsg());
+		} else if(ServiceException.class.isInstance(throwable)){
+			response.setCode(((ServiceException)throwable).getCode());
+			response.setMsg(((ServiceException)throwable).getMsg());
+			
 		} else {
 			ServiceException serviceException = new ServiceException(SystemReturnCode.UNKNOWN_ERROR);
 			response.setCode(serviceException.getCode());

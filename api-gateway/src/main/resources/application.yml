@@ -3,6 +3,3 @@ spring:
     name: apigateway
     address: zookeeper://127.0.0.1:2181
     check: false
-    timeout: 6000
-    retries: 0
-  
